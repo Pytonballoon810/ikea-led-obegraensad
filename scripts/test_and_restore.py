@@ -150,8 +150,11 @@ def main() -> int:
     )
     parser.add_argument(
         "--recovery-host",
-        default="192.168.4.1",
-        help="Recovery firmware host/IP",
+        default=os.getenv("RECOVERY_HOST", ""),
+        help=(
+            "Host/IP to probe for test-firmware recovery readiness. "
+            "Default: ota-url host (or 192.168.4.1 when --connect-recovery-ap is used)."
+        ),
     )
     parser.add_argument(
         "--wait-seconds",
@@ -172,13 +175,23 @@ def main() -> int:
         print("[FLOW] Missing OTA URL. Pass --ota-url or set OTA_URL.")
         return 2
 
+    ota_parts = urlsplit(args.ota_url)
+    if not ota_parts.scheme or not ota_parts.netloc:
+        print(f"[FLOW] Invalid OTA URL: {args.ota_url}")
+        return 2
+    ota_host = ota_parts.hostname or ""
+
+    # If not explicitly provided, use OTA target host for recovery probing.
+    # When AP auto-connect is requested, default to test AP gateway.
+    recovery_host = args.recovery_host or ("192.168.4.1" if args.connect_recovery_ap else ota_host)
+
     try:
         # 1) Upload and execute tests. Test firmware then stays in OTA recovery mode.
         _run(["pio", "test", "-e", args.test_env])
 
         # 2) Wait for recovery endpoint; optionally switch host to test AP.
         _wait_for_recovery(
-            host=args.recovery_host,
+            host=recovery_host,
             timeout_seconds=args.wait_seconds,
             connect_ap=args.connect_recovery_ap,
             ap_ssid=args.ap_ssid,
