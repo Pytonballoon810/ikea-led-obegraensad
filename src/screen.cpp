@@ -19,6 +19,8 @@ bool Screen_::isPoweredOff() const
 
 void Screen_::startRenderTimer()
 {
+  poweredOff_ = false;
+
   if (!renderTimerInitialized_)
     return;
 
@@ -34,11 +36,12 @@ void Screen_::startRenderTimer()
   timer1_write(100);
 #endif
 
-  poweredOff_ = false;
 }
 
 void Screen_::stopRenderTimer()
 {
+  poweredOff_ = true;
+
   if (!renderTimerInitialized_)
     return;
 
@@ -53,7 +56,6 @@ void Screen_::stopRenderTimer()
   timer1_disable();
 #endif
 
-  poweredOff_ = true;
 }
 
 void Screen_::setBrightness(uint8_t brightness, bool shouldStore)
