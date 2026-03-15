@@ -312,6 +312,7 @@ void BreakoutPlugin::updateBall()
   int dx = this->ballMovement[0];
   int dy = this->ballMovement[1];
   const uint8_t destroyedBefore = this->destroyedBricks;
+  bool verticalBounceOccurred = false;
 
   // Keep a short-lived spin impulse after paddle contact for a curved feel.
   if (this->curveFramesRemaining > 0 && this->curveDirection != 0)
@@ -337,6 +338,7 @@ void BreakoutPlugin::updateBall()
   {
     dy *= -1;
     ny = this->ball.y + dy;
+    verticalBounceOccurred = true;
   }
 
   // Paddle collision at bottom row.
@@ -349,6 +351,17 @@ void BreakoutPlugin::updateBall()
       // Physics-style reflection on a horizontal paddle: keep horizontal
       // component, invert vertical component.
       dy = -abs(dy == 0 ? -1 : dy);
+      verticalBounceOccurred = true;
+
+      // Explicit corner rebounds make edge hits reliably kick outward.
+      if (nx == paddleLeft)
+      {
+        dx = -1;
+      }
+      else if (nx == paddleRight)
+      {
+        dx = 1;
+      }
 
       // Add spin from paddle motion so moving hits curve the trajectory.
       if (this->lastPaddleMoveDirection != 0)
@@ -411,7 +424,10 @@ void BreakoutPlugin::updateBall()
     if (bounceX)
       dx *= -1;
     if (bounceY)
+    {
       dy *= -1;
+      verticalBounceOccurred = true;
+    }
 
     nx = this->ball.x + dx;
     ny = this->ball.y + dy;
@@ -426,6 +442,13 @@ void BreakoutPlugin::updateBall()
 
   this->ballMovement[0] = dx;
   this->ballMovement[1] = dy;
+
+  // Progressive speed-up: longer up/down rallies increase ball speed.
+  if (verticalBounceOccurred && this->ballDelay > this->BALL_DELAY_MIN)
+  {
+    this->ballDelay--;
+  }
+
   this->ball.x = nx;
   this->ball.y = ny;
 
@@ -493,14 +516,32 @@ void BreakoutPlugin::checkPaddleCollision()
 
 void BreakoutPlugin::updatePaddle()
 {
-  const int targetX = predictBallLandingX();
+  int targetX = predictBallLandingX();
   const int centerX = this->paddle[this->PADDLE_WIDTH / 2].x;
+
+  // During descending approaches near the paddle, actively favor edge
+  // catches and movement to trigger both corner rebounds and spin curves.
+  if (this->ballMovement[1] > 0 && this->ball.y >= (this->Y_MAX - 6))
+  {
+    const int preferredSpin = (targetX >= centerX) ? 1 : -1;
+    // Aim so the ball lands near the moving-side edge of the paddle.
+    if (preferredSpin > 0)
+      targetX -= (this->PADDLE_WIDTH - 1);
+    targetX = max(0, min((int)this->X_MAX - this->PADDLE_WIDTH, targetX));
+    targetX += this->PADDLE_WIDTH / 2;
+  }
 
   int moveDirection = 0;
   if (targetX > centerX)
     moveDirection = 1;
   else if (targetX < centerX)
     moveDirection = -1;
+
+  // Keep the paddle moving right at impact window to apply visible curve.
+  if (moveDirection == 0 && this->ballMovement[1] > 0 && this->ball.y >= (this->Y_MAX - 3))
+  {
+    moveDirection = (this->ball.x >= centerX) ? 1 : -1;
+  }
 
   if (moveDirection == 0)
   {
