@@ -60,6 +60,7 @@ private:
   uint8_t samePaddleHitStreak = 0;
 
   int brickIndexAt(int x, int y) const;
+  int getActiveBrickCenterX() const;
   bool isPaddleCell(int x, int y) const;
   bool isBrickCell(int x, int y) const;
   bool isForegroundCell(int x, int y) const;

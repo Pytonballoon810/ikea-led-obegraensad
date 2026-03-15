@@ -15,6 +15,25 @@ int BreakoutPlugin::brickIndexAt(int x, int y) const
   return -1;
 }
 
+int BreakoutPlugin::getActiveBrickCenterX() const
+{
+  int sumX = 0;
+  int count = 0;
+  for (int i = 0; i < this->BRICK_AMOUNT; i++)
+  {
+    if (this->bricks[i].x >= 0 && this->bricks[i].y >= 0)
+    {
+      sumX += this->bricks[i].x;
+      count++;
+    }
+  }
+
+  if (count == 0)
+    return this->X_MAX / 2;
+
+  return sumX / count;
+}
+
 bool BreakoutPlugin::isPaddleCell(int x, int y) const
 {
   for (int i = 0; i < this->PADDLE_WIDTH; i++)
@@ -679,17 +698,34 @@ void BreakoutPlugin::updatePaddle()
 {
   int targetX = predictBallLandingX();
   const int centerX = this->paddle[this->PADDLE_WIDTH / 2].x;
+  const int brickCenterX = getActiveBrickCenterX();
 
-  // During descending approaches near the paddle, actively favor edge
-  // catches and movement to trigger both corner rebounds and spin curves.
+  int desiredDx = 0;
+  if (brickCenterX > this->ball.x)
+    desiredDx = 1;
+  else if (brickCenterX < this->ball.x)
+    desiredDx = -1;
+
+  // If centered on brick centroid already, prefer sending toward the denser
+  // opposite side of current drift to avoid repeating same-side channels.
+  if (desiredDx == 0)
+  {
+    if (this->ballMovement[0] > 0)
+      desiredDx = -1;
+    else if (this->ballMovement[0] < 0)
+      desiredDx = 1;
+    else
+      desiredDx = (this->ball.x < (this->X_MAX / 2)) ? 1 : -1;
+  }
+
+  // During descending approaches near the paddle, nudge alignment so contact
+  // favors sending the ball toward remaining brick clusters.
   if (this->ballMovement[1] > 0 && this->ball.y >= (this->Y_MAX - 6))
   {
-    const int preferredSpin = (targetX >= centerX) ? 1 : -1;
-    // Aim so the ball lands near the moving-side edge of the paddle.
-    if (preferredSpin > 0)
-      targetX -= (this->PADDLE_WIDTH - 1);
-    targetX = max(0, min((int)this->X_MAX - this->PADDLE_WIDTH, targetX));
-    targetX += this->PADDLE_WIDTH / 2;
+    // Shift paddle center slightly opposite the desired travel direction so
+    // the impact point and spin bias cooperate.
+    targetX -= desiredDx;
+    targetX = max(0, min((int)this->X_MAX - 1, targetX));
   }
 
   int moveDirection = 0;
@@ -698,10 +734,11 @@ void BreakoutPlugin::updatePaddle()
   else if (targetX < centerX)
     moveDirection = -1;
 
-  // Keep the paddle moving right at impact window to apply visible curve.
+  // In the impact window, keep paddle movement aligned to desiredDx to apply
+  // intentional spin and break right-side lockups.
   if (moveDirection == 0 && this->ballMovement[1] > 0 && this->ball.y >= (this->Y_MAX - 3))
   {
-    moveDirection = (this->ball.x >= centerX) ? 1 : -1;
+    moveDirection = desiredDx;
   }
 
   if (moveDirection == 0)
