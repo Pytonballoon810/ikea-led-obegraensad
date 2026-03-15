@@ -140,8 +140,8 @@ void BreakoutPlugin::initBricks()
 
 void BreakoutPlugin::newLevel()
 {
-  this->initBricks();
   Screen.clear();
+  this->initBricks();
 
   for (byte i = 0; i < this->PADDLE_WIDTH; i++)
   {
