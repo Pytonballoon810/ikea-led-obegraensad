@@ -50,6 +50,11 @@ void Messages_::remove(int id)
 
 void Messages_::scroll()
 {
+  if (Screen.isPoweredOff())
+  {
+    return;
+  }
+
   Screen.persist();
 
   for (auto it = activeMessages.begin(); it != activeMessages.end();)
@@ -85,6 +90,11 @@ void Messages_::scroll()
 
 void Messages_::scrollMessageEveryMinute()
 {
+  if (Screen.isPoweredOff())
+  {
+    return;
+  }
+
   struct tm timeinfo;
 
   if (getLocalTime(&timeinfo))

@@ -65,6 +65,9 @@ void PluginScheduler::stop()
 
 void PluginScheduler::update()
 {
+  if (Screen.isPoweredOff())
+    return;
+
   if (!isActive || schedule.empty())
     return;
 

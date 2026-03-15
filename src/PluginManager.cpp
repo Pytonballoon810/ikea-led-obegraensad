@@ -122,6 +122,12 @@ void PluginManager::setupActivePlugin()
 
 void PluginManager::runActivePlugin()
 {
+    if (Screen.isPoweredOff())
+    {
+        // Brightness 0 is treated as software power-off.
+        return;
+    }
+
     if (activePlugin && currentStatus != UPDATE &&
         currentStatus != LOADING && currentStatus != WSBINARY)
     {
