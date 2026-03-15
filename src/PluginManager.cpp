@@ -30,6 +30,9 @@ void PluginManager::init()
 void PluginManager::activatePersistedPlugin()
 {
     std::vector<Plugin *> &allPlugins = pluginManager.getAllPlugins();
+    if (allPlugins.empty())
+        return; // no plugins registered yet
+
 #ifdef ENABLE_STORAGE
     storage.begin("led-wall", true);
     persistedPluginId = storage.getInt("current-plugin", allPlugins.at(0)->getId());
@@ -57,15 +60,13 @@ void PluginManager::persistActivePlugin()
 
 int PluginManager::getPersistedPluginId()
 {
-    std::vector<Plugin *> &allPlugins = pluginManager.getAllPlugins();
-    #ifdef ENABLE_STORAGE
-        storage.begin("led-wall", true);
-        persistedPluginId = storage.getInt("current-plugin", allPlugins.at(0)->getId());
-        storage.end();
-        return persistedPluginId;
-    #else
-        return -1;
-    #endif
+    // Return the cached in-memory value – opening NVS storage on every
+    // WebSocket info broadcast would be both slow and wear the flash.
+#ifdef ENABLE_STORAGE
+    return persistedPluginId;
+#else
+    return -1;
+#endif
 }
 
 
@@ -82,7 +83,9 @@ void PluginManager::setActivePlugin(const char *pluginName)
     if (activePlugin)
     {
         activePlugin->teardown();
-        delay(100);
+        // Do NOT busy-wait here – setActivePlugin can be called from an
+        // async WebSocket callback on the TCP task, and a blocking delay()
+        // stalls that task and can trigger the watchdog.
         activePlugin = nullptr;
     }
 
@@ -143,20 +146,26 @@ size_t PluginManager::getNumPlugins()
 
 void PluginManager::activateNextPlugin()
 {
-    if (activePlugin)
+    if (!activePlugin || plugins.empty())
     {
-        if (activePlugin->getId() <= getNumPlugins() - 1)
-        {
-            setActivePluginById(activePlugin->getId() + 1);
-        }
-        else
-        {
-            setActivePluginById(1);
-        }
+        if (!plugins.empty())
+            setActivePluginById(plugins.front()->getId());
+        return;
     }
-    else
+
+    // Find the position of the active plugin in the list and advance by one,
+    // wrapping around at the end.  Using the plugin list index (not the plugin
+    // id) avoids the size_t underflow that occurred when getNumPlugins()-1 was
+    // computed on an empty vector.
+    size_t numPlugins = plugins.size();
+    for (size_t i = 0; i < numPlugins; i++)
     {
-        setActivePluginById(1);
+        if (plugins[i] == activePlugin)
+        {
+            size_t next = (i + 1) % numPlugins;
+            setActivePluginById(plugins[next]->getId());
+            break;
+        }
     }
 #ifdef ENABLE_SERVER
     sendInfo();
