@@ -1,6 +1,7 @@
 // Module: Autoplay breakout game plugin with collision, AI paddle, and win/loss flow.
 // copyright https://elektro.turanis.de/html/prj104/index.html
 #include "plugins/BreakoutPlugin.h"
+#include <cstring>
 
 int BreakoutPlugin::brickIndexAt(int x, int y) const
 {
@@ -196,6 +197,68 @@ void BreakoutPlugin::initBricks()
   }
 }
 
+void BreakoutPlugin::clearRallyPath(uint64_t *path)
+{
+  memset(path, 0, sizeof(uint64_t) * this->PATH_WORDS);
+}
+
+void BreakoutPlugin::markRallyPathCell(int x, int y)
+{
+  if (x < 0 || x >= this->X_MAX || y < 0 || y >= this->Y_MAX)
+    return;
+
+  const int index = y * this->X_MAX + x;
+  const int word = index / 64;
+  const int bit = index % 64;
+  this->currentRallyPath[word] |= (uint64_t(1) << bit);
+}
+
+bool BreakoutPlugin::rallyPathIsEmpty(const uint64_t *path) const
+{
+  for (int i = 0; i < this->PATH_WORDS; i++)
+  {
+    if (path[i] != 0)
+      return false;
+  }
+  return true;
+}
+
+bool BreakoutPlugin::rallyPathMatchesPrevious() const
+{
+  return memcmp(
+             this->currentRallyPath,
+             this->previousRallyPath,
+             sizeof(uint64_t) * this->PATH_WORDS) == 0;
+}
+
+void BreakoutPlugin::evaluateRallyPathOnPaddleHit()
+{
+  const bool currentEmpty = rallyPathIsEmpty(this->currentRallyPath);
+  const bool previousEmpty = rallyPathIsEmpty(this->previousRallyPath);
+
+  if (!currentEmpty && !previousEmpty && rallyPathMatchesPrevious())
+  {
+    this->repeatedPathOverlayStreak++;
+  }
+  else
+  {
+    this->repeatedPathOverlayStreak = 0;
+  }
+
+  if (this->repeatedPathOverlayStreak >= 2)
+  {
+    // Trigger diversification on the following paddle impact.
+    this->randomizeNextPaddleBounce = true;
+    this->repeatedPathOverlayStreak = 0;
+  }
+
+  memcpy(
+      this->previousRallyPath,
+      this->currentRallyPath,
+      sizeof(uint64_t) * this->PATH_WORDS);
+  clearRallyPath(this->currentRallyPath);
+}
+
 void BreakoutPlugin::resetLoopDetector()
 {
   this->zeroDxStreak = 0;
@@ -274,6 +337,11 @@ void BreakoutPlugin::newLevel()
   this->lastPaddleMoveDirection = 0;
   this->curveDirection = 0;
   this->curveFramesRemaining = 0;
+  this->randomizeNextPaddleBounce = false;
+  this->repeatedPathOverlayStreak = 0;
+  clearRallyPath(this->currentRallyPath);
+  clearRallyPath(this->previousRallyPath);
+  markRallyPathCell(this->ball.x, this->ball.y);
   this->lastBallUpdate = 0;
 
   this->level++;
@@ -391,8 +459,20 @@ void BreakoutPlugin::updateBall()
         }
       }
 
+      if (this->randomizeNextPaddleBounce)
+      {
+        // Break repeated loop patterns by forcing a fresh outgoing angle.
+        dx = (random(2) == 0) ? -1 : 1;
+        this->curveDirection = dx;
+        this->curveFramesRemaining = 2;
+        this->randomizeNextPaddleBounce = false;
+      }
+
       nx = this->ball.x + dx;
       ny = this->ball.y + dy;
+
+      // End of one rally segment (between paddle contacts).
+      evaluateRallyPathOnPaddleHit();
     }
   }
 
@@ -478,6 +558,7 @@ void BreakoutPlugin::updateBall()
 
   this->ball.x = nx;
   this->ball.y = ny;
+  markRallyPathCell(this->ball.x, this->ball.y);
 
   const bool destroyedBrickThisFrame = (this->destroyedBricks != destroyedBefore);
   detectAndRecoverFromLoop(destroyedBrickThisFrame);

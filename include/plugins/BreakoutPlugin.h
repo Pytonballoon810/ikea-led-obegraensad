@@ -14,6 +14,7 @@ private:
   static const uint8_t SPEED_RAMP_BOUNCES = 3;
   static const uint8_t PADDLE_WIDTH = 5;
   static const uint8_t TRAIL_LENGTH = 3;
+  static const uint8_t PATH_WORDS = 4; // 4 * 64 bits = 256 pixels
   static const uint8_t LED_TYPE_OFF = 0;
   static const uint8_t LED_TYPE_ON = 1;
   static const uint8_t GAME_STATE_RUNNING = 1;
@@ -50,6 +51,10 @@ private:
   int8_t lastStateY = -1;
   int8_t lastStateDx = 0;
   int8_t lastStateDy = 0;
+  uint64_t currentRallyPath[BreakoutPlugin::PATH_WORDS] = {0, 0, 0, 0};
+  uint64_t previousRallyPath[BreakoutPlugin::PATH_WORDS] = {0, 0, 0, 0};
+  uint8_t repeatedPathOverlayStreak = 0;
+  bool randomizeNextPaddleBounce = false;
 
   int brickIndexAt(int x, int y) const;
   bool isPaddleCell(int x, int y) const;
@@ -65,6 +70,11 @@ private:
   void playWinAnimation();
   void initGame();
   void initBricks();
+  void clearRallyPath(uint64_t *path);
+  void markRallyPathCell(int x, int y);
+  bool rallyPathIsEmpty(const uint64_t *path) const;
+  bool rallyPathMatchesPrevious() const;
+  void evaluateRallyPathOnPaddleHit();
   void resetLoopDetector();
   void detectAndRecoverFromLoop(bool destroyedBrickThisFrame);
   void newLevel();
