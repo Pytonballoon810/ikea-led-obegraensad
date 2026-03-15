@@ -518,38 +518,49 @@ void BreakoutPlugin::updateBall()
     }
   }
 
-  // Brick collision: resolve one impacted brick per frame and apply a single
-  // deterministic bounce rule to avoid multi-flip jitter.
+  // Brick collision: handle side-axis contacts even when the diagonal cell is
+  // clear. This prevents diagonal travel lanes from skipping reachable bricks.
+  const int hitX = brickIndexAt(this->ball.x + dx, this->ball.y);
+  const int hitY = brickIndexAt(this->ball.x, this->ball.y + dy);
   const int hitDiag = brickIndexAt(nx, ny);
-  if (hitDiag >= 0)
+  if (hitX >= 0 || hitY >= 0 || hitDiag >= 0)
   {
-    const int hitX = brickIndexAt(this->ball.x + dx, this->ball.y);
-    const int hitY = brickIndexAt(this->ball.x, this->ball.y + dy);
-
     bool bounceX = false;
     bool bounceY = false;
+    int brickToRemove = -1;
 
     if (hitX >= 0 && hitY < 0)
     {
+      // Side-wall style impact into a brick column.
       bounceX = true;
+      brickToRemove = hitX;
     }
     else if (hitY >= 0 && hitX < 0)
     {
+      // Vertical impact into a brick row.
       bounceY = true;
+      brickToRemove = hitY;
     }
     else if (hitX >= 0 && hitY >= 0)
     {
-      // Corner squeeze between neighboring bricks.
+      // Corner squeeze between bricks: reflect both axes.
       bounceX = true;
       bounceY = true;
+      brickToRemove = (hitDiag >= 0) ? hitDiag : hitY;
     }
     else
     {
-      // Pure diagonal touch behaves most naturally as a vertical reflection.
-      bounceY = true;
+      // Pure diagonal overlap with no axis-only hit.
+      brickToRemove = hitDiag;
+      // Alternate axis selection to avoid getting stuck in mirrored lanes.
+      if (((this->ball.x + this->ball.y) & 0x1) == 0)
+        bounceX = true;
+      else
+        bounceY = true;
     }
 
-    removeBrick(hitDiag);
+    if (brickToRemove >= 0)
+      removeBrick(brickToRemove);
 
     if (bounceX)
       dx *= -1;
