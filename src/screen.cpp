@@ -33,6 +33,10 @@ void Screen_::setBrightness(uint8_t brightness, bool shouldStore)
 
 void Screen_::setRenderBuffer(const uint8_t *renderBuffer, bool grays)
 {
+  // Protect against concurrent ISR reads on ESP32 dual-core systems.
+#ifdef ESP32
+  portENTER_CRITICAL(&mux_);
+#endif
   if (grays)
   {
     memcpy(renderBuffer_, renderBuffer, ROWS * COLS);
@@ -44,6 +48,9 @@ void Screen_::setRenderBuffer(const uint8_t *renderBuffer, bool grays)
       renderBuffer_[i] = renderBuffer[i] * 255;
     }
   }
+#ifdef ESP32
+  portEXIT_CRITICAL(&mux_);
+#endif
 }
 
 uint8_t *Screen_::getRenderBuffer()
@@ -58,7 +65,13 @@ uint8_t Screen_::getBufferIndex(int index)
 
 void Screen_::clear()
 {
+#ifdef ESP32
+  portENTER_CRITICAL(&mux_);
+#endif
   memset(renderBuffer_, 0, ROWS * COLS);
+#ifdef ESP32
+  portEXIT_CRITICAL(&mux_);
+#endif
 }
 
 void Screen_::clearRect(int x, int y, int width, int height)
@@ -80,10 +93,16 @@ void Screen_::clearRect(int x, int y, int width, int height)
   }
 
   width = std::min(width, COLS - x);
+#ifdef ESP32
+  portENTER_CRITICAL(&mux_);
+#endif
   for (int row = y; row < y + height; row++)
   {
     memset(renderBuffer_ + (row * COLS + x), 0, width);
   }
+#ifdef ESP32
+  portEXIT_CRITICAL(&mux_);
+#endif
 }
 
 // CACHE START
@@ -180,14 +199,16 @@ void Screen_::setPixelAtIndex(uint8_t index, uint8_t value, uint8_t brightness)
 {
   if (index >= COLS * ROWS)
     return;
-  renderBuffer_[index] = value <= 0 || brightness <= 0 ? 0 : (brightness > 255 ? 255 : brightness);
+  // brightness is uint8_t so can never exceed 255; value==0 means off.
+  renderBuffer_[index] = (value == 0 || brightness == 0) ? 0 : brightness;
 }
 
 void Screen_::setPixel(uint8_t x, uint8_t y, uint8_t value, uint8_t brightness)
 {
   if (x >= COLS || y >= ROWS)
     return;
-  renderBuffer_[y * COLS + x] = value <= 0 || brightness <= 0 ? 0 : (brightness > 255 ? 255 : brightness);
+  // brightness is uint8_t so can never exceed 255; value==0 means off.
+  renderBuffer_[y * COLS + x] = (value == 0 || brightness == 0) ? 0 : brightness;
 }
 
 void Screen_::setCurrentRotation(int rotation, bool shouldPersist)
@@ -204,19 +225,27 @@ void Screen_::setCurrentRotation(int rotation, bool shouldPersist)
 #endif
 }
 
-uint8_t *Screen_::getRotatedRenderBuffer()
+// Called from within the render ISR — must remain in IRAM.
+ICACHE_RAM_ATTR uint8_t *Screen_::getRotatedRenderBuffer()
 {
-  for (int i = 0; i < ROWS * COLS; i++)
-  {
-    rotatedRenderBuffer_[i] = renderBuffer_[i];
-  }
+  // Take a spinlock-protected snapshot of the render buffer so that
+  // concurrent task-side writes (e.g. from Core 1 WebSocket handlers on
+  // ESP32) cannot produce a torn read inside the ISR.
+#ifdef ESP32
+  portENTER_CRITICAL_ISR(&mux_);
+#endif
+  memcpy(rotatedRenderBuffer_, renderBuffer_, ROWS * COLS);
+#ifdef ESP32
+  portEXIT_CRITICAL_ISR(&mux_);
+#endif
 
   rotate();
 
   return rotatedRenderBuffer_;
 }
 
-void Screen_::rotate()
+// In-place rotation of rotatedRenderBuffer_ — called from ISR path.
+ICACHE_RAM_ATTR void Screen_::rotate()
 {
   for (int row = 0; row < ROWS / 2; row++)
   {
@@ -232,7 +261,8 @@ void Screen_::rotate()
   }
 }
 
-void Screen_::onScreenTimer()
+// Timer ISR trampoline — must be linked in IRAM (ICACHE_RAM_ATTR).
+ICACHE_RAM_ATTR void Screen_::onScreenTimer()
 {
   Screen._render();
 }

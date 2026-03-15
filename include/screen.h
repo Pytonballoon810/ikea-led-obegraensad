@@ -33,10 +33,19 @@ private:
       0xe7, 0xe6, 0xe5, 0xe4, 0xe3, 0xe2, 0xe1, 0xe0, 0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
       0xef, 0xee, 0xed, 0xec, 0xeb, 0xea, 0xe9, 0xe8, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff};
 
-  static void onScreenTimer();
+  // All functions in the ISR call chain must reside in IRAM so they are
+  // accessible when the flash instruction cache may be unavailable.
+  ICACHE_RAM_ATTR static void onScreenTimer();
   ICACHE_RAM_ATTR void _render();
-  void rotate();
-  uint8_t *getRotatedRenderBuffer();
+  ICACHE_RAM_ATTR void rotate();
+  ICACHE_RAM_ATTR uint8_t *getRotatedRenderBuffer();
+
+#ifdef ESP32
+  // Spinlock that serialises ISR reads of renderBuffer_ against task writes.
+  // portENTER_CRITICAL_ISR / portENTER_CRITICAL share the same lock so they
+  // are mutually exclusive even across both ESP32 cores.
+  portMUX_TYPE mux_ = portMUX_INITIALIZER_UNLOCKED;
+#endif
 
 public:
   static Screen_ &getInstance();
