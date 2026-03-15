@@ -122,15 +122,16 @@ bool PluginScheduler::setScheduleByJSONString(String scheduleJson)
     return false;
   }
 
+  // Clear in-memory schedule and, if requested, persist the empty state.
   clearSchedule(true);
 
+  // Re-open storage to persist the new schedule string *after* clearing.
+  // (clearSchedule(true) already wrote an empty string; overwrite it now.)
 #ifdef ENABLE_STORAGE
   storage.begin("led-wall");
   storage.putString("schedule", scheduleJson);
   storage.end();
 #endif
-
-  clearSchedule();
 
   for (const auto &item : doc.as<JsonArray>())
   {
