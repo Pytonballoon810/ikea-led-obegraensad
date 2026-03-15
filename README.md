@@ -140,6 +140,12 @@ Then run OTA upload with one of the dedicated environments:
 pio run -e esp32dev-ota -t upload
 ```
 
+Suggested one-line command for this setup:
+
+```bash
+OTA_URL='http://192.168.5.60' OTA_USERNAME='admin' OTA_PASSWORD='admin' OTA_AUTH_TYPE='digest' pio run -e esp32dev-ota -t upload
+```
+
 or:
 
 ```bash
