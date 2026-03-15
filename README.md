@@ -175,6 +175,20 @@ flash the real firmware without reconnecting USB:
 
 This recovery mode remains active until you flash another image.
 
+For a full automated flow (run tests, then immediately upload real firmware), use:
+
+```bash
+python scripts/test_and_restore.py --connect-recovery-ap
+```
+
+What this command does:
+- runs `pio test -e esp32dev-unit`
+- waits for recovery OTA endpoint `http://192.168.4.1/update`
+- uploads real firmware with `pio run -e esp32dev-recovery-ota -t upload`
+
+If your host is already on the recovery AP, you can omit
+`--connect-recovery-ap`.
+
 Run a single suite with:
 
 ```bash
