@@ -166,6 +166,15 @@ and uses a test-specific build profile:
 - `build_src_filter` to compile only the required `src/*.cpp` files for tests
 - `-DDISABLE_SERVER` to remove web/OTA dependencies from test builds
 
+After tests finish, the test image enters **OTA recovery mode** so you can
+flash the real firmware without reconnecting USB:
+- WiFi AP: `IKEA-Test-OTA`
+- AP password: `adminadmin`
+- ElegantOTA credentials: `admin` / `admin`
+- OTA page: `http://192.168.4.1/update`
+
+This recovery mode remains active until you flash another image.
+
 Run a single suite with:
 
 ```bash
