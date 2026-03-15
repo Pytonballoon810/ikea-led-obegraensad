@@ -55,7 +55,7 @@ void BreakoutPlugin::shiftTrail(int prevX, int prevY)
 
 void BreakoutPlugin::renderTrail()
 {
-  static const uint8_t trailBrightness[BreakoutPlugin::TRAIL_LENGTH] = {70, 45, 28, 16};
+  static const uint8_t trailBrightness[BreakoutPlugin::TRAIL_LENGTH] = {70, 34, 16};
 
   for (int i = 0; i < this->TRAIL_LENGTH; i++)
   {
@@ -271,6 +271,8 @@ void BreakoutPlugin::newLevel()
   this->ballMovement[0] = 1;
   this->ballMovement[1] = -1;
   this->lastPaddleMoveDirection = 0;
+  this->curveDirection = 0;
+  this->curveFramesRemaining = 0;
   this->lastBallUpdate = 0;
 
   this->level++;
@@ -310,6 +312,18 @@ void BreakoutPlugin::updateBall()
   int dx = this->ballMovement[0];
   int dy = this->ballMovement[1];
   const uint8_t destroyedBefore = this->destroyedBricks;
+
+  // Keep a short-lived spin impulse after paddle contact for a curved feel.
+  if (this->curveFramesRemaining > 0 && this->curveDirection != 0)
+  {
+    dx += this->curveDirection;
+    if (dx > 1)
+      dx = 1;
+    if (dx < -1)
+      dx = -1;
+    this->curveFramesRemaining--;
+  }
+
   int nx = this->ball.x + dx;
   int ny = this->ball.y + dy;
 
@@ -332,19 +346,11 @@ void BreakoutPlugin::updateBall()
     const int paddleRight = this->paddle[this->PADDLE_WIDTH - 1].x;
     if (nx >= paddleLeft && nx <= paddleRight)
     {
-      // Reflect upward and steer angle by hit position on paddle.
-      dy = -1;
-      const int center = this->paddle[this->PADDLE_WIDTH / 2].x;
-      if (nx < center)
-        dx = -1;
-      else if (nx > center)
-        dx = 1;
-      else
-        dx = 0;
+      // Physics-style reflection on a horizontal paddle: keep horizontal
+      // component, invert vertical component.
+      dy = -abs(dy == 0 ? -1 : dy);
 
-      // Add "curve" from paddle movement (spin/english effect).
-      // When the paddle is moving during contact, bias horizontal speed
-      // toward that movement direction.
+      // Add spin from paddle motion so moving hits curve the trajectory.
       if (this->lastPaddleMoveDirection != 0)
       {
         dx += this->lastPaddleMoveDirection;
@@ -354,6 +360,14 @@ void BreakoutPlugin::updateBall()
           dx = -1;
         if (dx == 0)
           dx = this->lastPaddleMoveDirection;
+
+        this->curveDirection = this->lastPaddleMoveDirection;
+        this->curveFramesRemaining = 3;
+      }
+      else
+      {
+        this->curveDirection = 0;
+        this->curveFramesRemaining = 0;
       }
 
       nx = this->ball.x + dx;
