@@ -5,6 +5,11 @@
 
 AsyncWebSocket ws("/ws");
 
+/**
+ * Serialise the current system state to JSON and broadcast it to all
+ * connected WebSocket clients.  Called on connection and after any
+ * state-changing command.
+ */
 void sendInfo()
 {
   DynamicJsonDocument jsonDocument(6144);
@@ -16,8 +21,12 @@ void sendInfo()
     }
   }
 
+  Plugin *active = pluginManager.getActivePlugin();
+  if (!active)
+    return;
+
   jsonDocument["status"] = currentStatus;
-  jsonDocument["plugin"] = pluginManager.getActivePlugin()->getId();
+  jsonDocument["plugin"] = active->getId();
   jsonDocument["persist-plugin"] = pluginManager.getPersistedPluginId();
   jsonDocument["event"] = "info";
   jsonDocument["rotation"] = Screen.currentRotation;
@@ -48,6 +57,16 @@ void sendInfo()
   jsonDocument.clear();
 }
 
+/**
+ * ESPAsyncWebServer WebSocket event handler.
+ *
+ * IMPORTANT: this runs on the async TCP task (Core 0 on ESP32).  Any
+ * access to shared state (renderBuffer_, plugin list, …) must be done
+ * with the appropriate locking already in place on those objects.
+ *
+ * Frame reassembly is not supported – only single-frame messages are
+ * processed.  Multi-frame messages are silently dropped.
+ */
 void onWsEvent(
     AsyncWebSocket *server,
     AsyncWebSocketClient *client,
@@ -72,10 +91,19 @@ void onWsEvent(
       }
       else if (info->opcode == WS_TEXT)
       {
-        data[len] = 0;
+        // ESPAsyncWebServer does NOT guarantee a trailing NUL byte on the
+        // payload.  Write into a stack buffer that has room for one so we
+        // can safely pass it to deserializeJson / strcmp without a
+        // heap allocation and without mutating the DMA-backed data buffer.
+        if (len == 0 || len > 4096)
+          return; // reject empty or oversized frames
+
+        char textBuf[len + 1];
+        memcpy(textBuf, data, len);
+        textBuf[len] = '\0';
 
         DynamicJsonDocument wsRequest(6144);
-        DeserializationError error = deserializeJson(wsRequest, data);
+        DeserializationError error = deserializeJson(wsRequest, textBuf);
 
         if (error)
         {
@@ -83,41 +111,44 @@ void onWsEvent(
           Serial.println(error.f_str());
           return;
         }
-        else
+
+        // Let the active plugin handle plugin-specific events first.
+        Plugin *active = pluginManager.getActivePlugin();
+        if (active)
+          active->websocketHook(wsRequest);
+
+        const char *event = wsRequest["event"];
+        if (!event)
+          return; // malformed request – no event field
+
+        if (!strcmp(event, "plugin"))
         {
-          pluginManager.getActivePlugin()->websocketHook(wsRequest);
+          int pluginId = wsRequest["plugin"];
 
-          const char *event = wsRequest["event"];
-
-          if (!strcmp(event, "plugin"))
-          {
-            int pluginId = wsRequest["plugin"];
-
-            Scheduler.clearSchedule();
-            pluginManager.setActivePluginById(pluginId);
-            sendInfo();
-          }
-          else if (!strcmp(event, "persist-plugin"))
-          {
-            pluginManager.persistActivePlugin();
-            sendInfo();
-          }
-          else if (!strcmp(event, "rotate"))
-          {
-            bool isRight = (bool)!strcmp(wsRequest["direction"], "right");
-            Screen.setCurrentRotation((Screen.currentRotation + (isRight ? 1 : 3)) % 4, true);
-            sendInfo();
-          }
-          else if (!strcmp(event, "info"))
-          {
-            sendInfo();
-          }
-          else if (!strcmp(event, "brightness"))
-          {
-            uint8_t brightness = wsRequest["brightness"].as<uint8_t>();
-            Screen.setBrightness(brightness, true);
-            sendInfo();
-          }
+          Scheduler.clearSchedule();
+          pluginManager.setActivePluginById(pluginId);
+          sendInfo();
+        }
+        else if (!strcmp(event, "persist-plugin"))
+        {
+          pluginManager.persistActivePlugin();
+          sendInfo();
+        }
+        else if (!strcmp(event, "rotate"))
+        {
+          bool isRight = (bool)!strcmp(wsRequest["direction"], "right");
+          Screen.setCurrentRotation((Screen.currentRotation + (isRight ? 1 : 3)) % 4, true);
+          sendInfo();
+        }
+        else if (!strcmp(event, "info"))
+        {
+          sendInfo();
+        }
+        else if (!strcmp(event, "brightness"))
+        {
+          uint8_t brightness = wsRequest["brightness"].as<uint8_t>();
+          Screen.setBrightness(brightness, true);
+          sendInfo();
         }
       }
     }
