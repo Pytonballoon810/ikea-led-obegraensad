@@ -15,6 +15,8 @@ private:
   static const uint8_t PADDLE_WIDTH = 5;
   static const uint8_t TRAIL_LENGTH = 3;
   static const uint8_t PATH_WORDS = 4; // 4 * 64 bits = 256 pixels
+  static const uint8_t MAGNET_BRICK_THRESHOLD = 6;
+  static const uint8_t MAGNET_STEER_CHANCE = 68;
   static const uint8_t LED_TYPE_OFF = 0;
   static const uint8_t LED_TYPE_ON = 1;
   static const uint8_t GAME_STATE_RUNNING = 1;
@@ -61,6 +63,7 @@ private:
 
   int brickIndexAt(int x, int y) const;
   int getActiveBrickCenterX() const;
+  int getMagnetTargetX() const;
   bool isPaddleCell(int x, int y) const;
   bool isBrickCell(int x, int y) const;
   bool isForegroundCell(int x, int y) const;
@@ -69,6 +72,7 @@ private:
   void renderTrail();
   void removeBrick(int index);
   int predictBallLandingX() const;
+  void renderBricks();
   void renderPaddle();
   void renderBall();
   void playWinAnimation();

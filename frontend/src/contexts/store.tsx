@@ -1,6 +1,6 @@
 import { createEventSignal } from "@solid-primitives/event-listener";
 import { createReconnectingWS, createWSState } from "@solid-primitives/websocket";
-import { batch, createContext, createEffect, type JSX, useContext } from "solid-js";
+import { batch, createContext, createEffect, createSignal, type JSX, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 
 import { type ScheduleItem, type Store, type StoreActions, SYSTEM_STATUS } from "../types";
@@ -13,6 +13,8 @@ const ws = createReconnectingWS(
 const wsState = createWSState(ws);
 
 const connectionStatus = ["Connecting", "Connected", "Disconnecting", "Disconnected"];
+const WS_CONNECTED = 1;
+const WS_DISCONNECTED = 3;
 
 const [mainStore, setStore] = createStore<Store>({
   isActiveScheduler: false,
@@ -49,6 +51,31 @@ const StoreContext = createContext<[Store, StoreActions]>(store);
 
 export const StoreProvider = (props?: { value?: Store; children?: JSX.Element }) => {
   const messageEvent = createEventSignal<{ message: MessageEvent }>(ws, "message");
+  const [hasEverConnected, setHasEverConnected] = createSignal(false);
+  const [sawUpdateStatus, setSawUpdateStatus] = createSignal(false);
+  const [reloadOnReconnect, setReloadOnReconnect] = createSignal(false);
+
+  createEffect(() => {
+    const state = wsState();
+
+    setStore("connectionStatus", connectionStatus[state] || "Unknown");
+
+    if (state === WS_CONNECTED) {
+      setHasEverConnected(true);
+
+      // If the device rebooted after OTA, refresh once so all resources and
+      // initial state are reloaded from the freshly booted firmware.
+      if (reloadOnReconnect()) {
+        setReloadOnReconnect(false);
+        window.location.reload();
+        return;
+      }
+    }
+
+    if (state === WS_DISCONNECTED && hasEverConnected() && sawUpdateStatus()) {
+      setReloadOnReconnect(true);
+    }
+  });
 
   createEffect(() => {
     const json = JSON.parse(messageEvent()?.data || "{}");
@@ -57,6 +84,7 @@ export const StoreProvider = (props?: { value?: Store; children?: JSX.Element })
       case "info":
         batch(() => {
           actions.setSystemStatus(Object.values(SYSTEM_STATUS)[json.status as number]);
+          setSawUpdateStatus(Object.values(SYSTEM_STATUS)[json.status as number] === SYSTEM_STATUS.UPDATE);
           actions.setRotation(json.rotation);
           actions.setBrightness(json.brightness);
           actions.setIsActiveScheduler(json.scheduleActive);
