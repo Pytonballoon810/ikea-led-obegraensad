@@ -1,3 +1,4 @@
+// Module: Circle/ripple style visual effect plugin.
 #include "plugins/CirclePlugin.h"
 
 void CirclePlugin::setup()

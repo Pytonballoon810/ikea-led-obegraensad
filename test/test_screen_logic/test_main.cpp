@@ -1,0 +1,141 @@
+#include <Arduino.h>
+#include <unity.h>
+
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <ElegantOTA.h>
+
+#include "constants.h"
+#include "PluginManager.h"
+#include "screen.h"
+
+SYSTEM_STATUS currentStatus = NONE;
+PluginManager pluginManager;
+
+namespace {
+AsyncWebServer recoveryServer(80);
+bool recoveryStarted = false;
+
+void showTestIndicatorT() {
+  Screen.clear();
+  std::vector<int> bits = Screen.readBytes(letterT);
+  for (size_t i = 0; i < bits.size(); i++) {
+    Screen.setPixelAtIndex(static_cast<uint8_t>(i), bits[i]);
+  }
+}
+
+void startOtaRecoveryModeOnce() {
+  if (recoveryStarted) {
+    return;
+  }
+
+  // Keep deterministic AP recovery mode, but also try to reconnect STA using
+  // saved credentials so OTA via the normal device URL can still work.
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP("IKEA-Test-OTA", "adminadmin");
+  WiFi.begin();
+
+  const uint32_t staDeadline = millis() + 8000;
+  while (WiFi.status() != WL_CONNECTED && millis() < staDeadline) {
+    delay(100);
+  }
+
+  recoveryServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "Test image OTA mode. Open /update to flash real firmware.");
+  });
+
+  ElegantOTA.begin(&recoveryServer);
+  ElegantOTA.setAuth("admin", "admin");
+  recoveryServer.begin();
+  recoveryStarted = true;
+
+  Serial.println("[TEST] OTA recovery AP: IKEA-Test-OTA");
+  Serial.println("[TEST] OTA credentials: admin / admin");
+  Serial.println("[TEST] OTA URL: http://192.168.4.1/update");
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("[TEST] OTA URL (STA): http://");
+    Serial.print(WiFi.localIP());
+    Serial.println("/update");
+  } else {
+    Serial.println("[TEST] STA reconnect unavailable; AP recovery remains active.");
+  }
+}
+}  // namespace
+
+void test_set_render_buffer_binary_maps_to_255() {
+  uint8_t input[ROWS * COLS] = {0};
+  input[0] = 1;
+  input[15] = 1;
+
+  Screen.setRenderBuffer(input, false);
+
+  TEST_ASSERT_EQUAL_UINT8(255, Screen.getBufferIndex(0));
+  TEST_ASSERT_EQUAL_UINT8(255, Screen.getBufferIndex(15));
+  TEST_ASSERT_EQUAL_UINT8(0, Screen.getBufferIndex(1));
+}
+
+void test_set_pixel_with_zero_brightness_turns_pixel_off() {
+  Screen.clear();
+  Screen.setPixel(1, 1, 1, 0);
+  TEST_ASSERT_EQUAL_UINT8(0, Screen.getBufferIndex(1 + COLS));
+}
+
+void test_clear_rect_clips_negative_coordinates() {
+  uint8_t full[ROWS * COLS];
+  memset(full, 255, sizeof(full));
+  Screen.setRenderBuffer(full, true);
+
+  Screen.clearRect(-2, -2, 4, 4);
+
+  // Only the visible top-left 2x2 area should be cleared.
+  TEST_ASSERT_EQUAL_UINT8(0, Screen.getBufferIndex(0));
+  TEST_ASSERT_EQUAL_UINT8(0, Screen.getBufferIndex(1));
+  TEST_ASSERT_EQUAL_UINT8(0, Screen.getBufferIndex(COLS));
+  TEST_ASSERT_EQUAL_UINT8(0, Screen.getBufferIndex(COLS + 1));
+  TEST_ASSERT_EQUAL_UINT8(255, Screen.getBufferIndex(COLS + 2));
+}
+
+void test_brightness_zero_enables_off_state_and_recovery() {
+  Screen.setBrightness(64, false);
+  TEST_ASSERT_FALSE(Screen.isPoweredOff());
+
+  Screen.setBrightness(0, false);
+  TEST_ASSERT_TRUE(Screen.isPoweredOff());
+
+  Screen.setBrightness(32, false);
+  TEST_ASSERT_FALSE(Screen.isPoweredOff());
+}
+
+void setup() {
+  delay(2000);
+}
+
+void loop() {
+  static bool ran = false;
+  if (ran) {
+    delay(1000);
+    return;
+  }
+  ran = true;
+
+  // Match OTA UX style by showing a large status letter while tests run.
+  showTestIndicatorT();
+
+  UNITY_BEGIN();
+
+  RUN_TEST(test_set_render_buffer_binary_maps_to_255);
+  RUN_TEST(test_set_pixel_with_zero_brightness_turns_pixel_off);
+  RUN_TEST(test_clear_rect_clips_negative_coordinates);
+  RUN_TEST(test_brightness_zero_enables_off_state_and_recovery);
+
+  UNITY_END();
+
+  startOtaRecoveryModeOnce();
+
+  // Keep test image alive in OTA recovery mode so a real firmware can be
+  // flashed without USB after test execution.
+  for (;;) {
+    ElegantOTA.loop();
+    delay(20);
+  }
+}

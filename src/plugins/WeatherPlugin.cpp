@@ -1,3 +1,4 @@
+// Module: Weather information rendering plugin.
 #include "plugins/WeatherPlugin.h"
 #include "config.h"
 

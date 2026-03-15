@@ -1,3 +1,4 @@
+// Module: Configures and starts the async HTTP server and API routes.
 #include "asyncwebserver.h"
 #include "messages.h"
 #include "webhandler.h"

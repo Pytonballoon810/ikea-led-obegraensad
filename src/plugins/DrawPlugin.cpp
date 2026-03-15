@@ -1,20 +1,22 @@
+// Module: Interactive drawing plugin for manual pixel editing and canvas operations.
 #include "plugins/DrawPlugin.h"
 
 void DrawPlugin::setup()
 {
-#ifdef ESP32
-  vTaskDelay(pdMS_TO_TICKS(50));
-#else
   delay(50);
-#endif
+  // Entering Draw mode should always present a fresh canvas.
   Screen.clear();
-  Screen.loadFromStorage();
 #ifdef ENABLE_SERVER
   sendInfo();
 #endif
 }
 
-void DrawPlugin::websocketHook(JsonDocument &request)
+void DrawPlugin::teardown()
+{
+  Screen.cacheCurrent();
+}
+
+void DrawPlugin::websocketHook(DynamicJsonDocument &request)
 {
   const char *event = request["event"];
 

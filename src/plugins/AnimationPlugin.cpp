@@ -1,3 +1,4 @@
+// Module: Animation playback plugin with frame sequencing and transitions.
 #include "plugins/AnimationPlugin.h"
 #include "websocket.h"
 

@@ -1,3 +1,4 @@
+// Module: Large-format digital clock rendering plugin.
 #include "plugins/BigClockPlugin.h"
 
 void BigClockPlugin::setup()

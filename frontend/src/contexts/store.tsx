@@ -1,22 +1,20 @@
 import { createEventSignal } from "@solid-primitives/event-listener";
 import { createReconnectingWS, createWSState } from "@solid-primitives/websocket";
-import { batch, createContext, createEffect, type JSX, useContext } from "solid-js";
+import { batch, createContext, createEffect, createSignal, type JSX, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 
 import { type ScheduleItem, type Store, type StoreActions, SYSTEM_STATUS } from "../types";
 import { ToastProvider } from "./toast";
 
 const ws = createReconnectingWS(
-  `${
-    import.meta.env.PROD
-      ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/`
-      : import.meta.env.VITE_WS_URL
-  }ws`,
+  `${import.meta.env.PROD ? `ws://${window.location.host}/` : import.meta.env.VITE_WS_URL}ws`,
 );
 
 const wsState = createWSState(ws);
 
 const connectionStatus = ["Connecting", "Connected", "Disconnecting", "Disconnected"];
+const WS_CONNECTED = 1;
+const WS_DISCONNECTED = 3;
 
 const [mainStore, setStore] = createStore<Store>({
   isActiveScheduler: false,
@@ -25,7 +23,6 @@ const [mainStore, setStore] = createStore<Store>({
   plugin: 1,
   brightness: 0,
   artnetUniverse: 1,
-  GOLDelay: 150,
   indexMatrix: [...new Array(256)].map((_, i) => i),
   leds: [...new Array(256)].fill(0),
   systemStatus: SYSTEM_STATUS.NONE,
@@ -41,7 +38,6 @@ const actions: StoreActions = {
   setPlugin: (plugin) => setStore("plugin", plugin),
   setBrightness: (brightness) => setStore("brightness", brightness),
   setArtnetUniverse: (artnetUniverse) => setStore("artnetUniverse", artnetUniverse),
-  setGOLDelay: (GOLDelay) => setStore("GOLDelay", GOLDelay),
   setIndexMatrix: (indexMatrix) => setStore("indexMatrix", indexMatrix),
   setLeds: (leds) => setStore("leds", leds),
   setSystemStatus: (systemStatus: SYSTEM_STATUS) => setStore("systemStatus", systemStatus),
@@ -53,91 +49,67 @@ const store: [Store, StoreActions] = [mainStore, actions] as const;
 
 const StoreContext = createContext<[Store, StoreActions]>(store);
 
-const isValidNumber = (value: unknown): value is number =>
-  typeof value === "number" && !Number.isNaN(value);
-
-const isValidBoolean = (value: unknown): value is boolean => typeof value === "boolean";
-
-const isValidArray = (value: unknown): value is unknown[] => Array.isArray(value);
-
 export const StoreProvider = (props?: { value?: Store; children?: JSX.Element }) => {
   const messageEvent = createEventSignal<{ message: MessageEvent }>(ws, "message");
-  const errorEvent = createEventSignal<{ error: Event }>(ws, "error");
+  const [hasEverConnected, setHasEverConnected] = createSignal(false);
+  const [sawUpdateStatus, setSawUpdateStatus] = createSignal(false);
+  const [reloadOnReconnect, setReloadOnReconnect] = createSignal(false);
 
   createEffect(() => {
     const state = wsState();
 
-    if (state >= 0 && state < connectionStatus.length) {
-      setStore("connectionStatus", connectionStatus[state]);
-    }
+    setStore("connectionStatus", connectionStatus[state] || "Unknown");
 
-    if (state === WebSocket.CLOSED || state === WebSocket.CLOSING) {
-      console.warn("WebSocket disconnected. Will attempt to reconnect...");
-    }
-  });
+    if (state === WS_CONNECTED) {
+      setHasEverConnected(true);
 
-  createEffect(() => {
-    const error = errorEvent();
-    if (error) {
-      console.error("WebSocket error occurred:", error);
-    }
-  });
-
-  createEffect(() => {
-    try {
-      const json = JSON.parse(messageEvent()?.data || "{}");
-
-      if (!json.event || typeof json.event !== "string") {
+      // If the device rebooted after OTA, refresh once so all resources and
+      // initial state are reloaded from the freshly booted firmware.
+      if (reloadOnReconnect()) {
+        setReloadOnReconnect(false);
+        window.location.reload();
         return;
       }
+    }
 
-      switch (json.event) {
-        case "info":
-          batch(() => {
-            if (
-              isValidNumber(json.status) &&
-              json.status >= 0 &&
-              json.status < Object.values(SYSTEM_STATUS).length
-            ) {
-              actions.setSystemStatus(Object.values(SYSTEM_STATUS)[json.status]);
-            }
+    if (state === WS_DISCONNECTED && hasEverConnected() && sawUpdateStatus()) {
+      setReloadOnReconnect(true);
+    }
+  });
 
-            if (isValidNumber(json.rotation)) {
-              actions.setRotation(json.rotation);
-            }
+  createEffect(() => {
+    const json = JSON.parse(messageEvent()?.data || "{}");
 
-            if (isValidNumber(json.brightness)) {
-              actions.setBrightness(json.brightness);
-            }
+    switch (json.event) {
+      case "info":
+        batch(() => {
+          actions.setSystemStatus(Object.values(SYSTEM_STATUS)[json.status as number]);
+          setSawUpdateStatus(Object.values(SYSTEM_STATUS)[json.status as number] === SYSTEM_STATUS.UPDATE);
+          actions.setRotation(json.rotation);
+          actions.setBrightness(json.brightness);
+          actions.setIsActiveScheduler(json.scheduleActive);
 
-            if (isValidBoolean(json.scheduleActive)) {
-              actions.setIsActiveScheduler(json.scheduleActive);
-            }
+          if (json.schedule) {
+            actions.setSchedule(json.schedule);
+          }
 
-            if (isValidArray(json.schedule)) {
-              actions.setSchedule(json.schedule as ScheduleItem[]);
-            }
+          if (!mainStore.plugins.length) {
+            actions.setPlugins(json.plugins);
+          }
 
-            if (!mainStore.plugins.length && isValidArray(json.plugins)) {
-              actions.setPlugins(json.plugins);
-            }
+          if (json.plugin) {
+            actions.setPlugin(json.plugin as number);
+          }
 
-            if (isValidNumber(json.plugin)) {
-              actions.setPlugin(json.plugin);
-            }
+          if (mainStore.plugin === 1) {
+            actions.setIndexMatrix([...new Array(256)].map((_, i) => i));
+          }
 
-            if (mainStore.plugin === 1) {
-              actions.setIndexMatrix([...new Array(256)].map((_, i) => i));
-            }
-
-            if (isValidArray(json.data)) {
-              actions.setLeds(json.data as number[]);
-            }
-          });
-          break;
-      }
-    } catch (error) {
-      console.error("Failed to parse WebSocket message:", error);
+          if (json.data) {
+            actions.setLeds(json.data);
+          }
+        });
+        break;
     }
   });
 

@@ -1,3 +1,4 @@
+// Module: Time-based plugin scheduling, persistence, and rotation control.
 #include "scheduler.h"
 #include "websocket.h"
 
@@ -44,7 +45,11 @@ void PluginScheduler::start()
     currentIndex = 0;
     lastSwitch = millis();
     isActive = true;
-    requestPersist();
+#ifdef ENABLE_STORAGE
+    storage.begin("led-wall", false);
+    storage.putInt("scheduleactive", 1);
+    storage.end();
+#endif
     switchToCurrentPlugin();
   }
 }
@@ -52,33 +57,17 @@ void PluginScheduler::start()
 void PluginScheduler::stop()
 {
   isActive = false;
-  requestPersist();
-}
-
-void PluginScheduler::requestPersist()
-{
-  needsPersist = true;
-  lastPersistRequest = millis();
-}
-
-void PluginScheduler::checkAndPersist()
-{
 #ifdef ENABLE_STORAGE
-  if (needsPersist && (millis() - lastPersistRequest >= PERSIST_DELAY_MS))
-  {
-    storage.begin("led-wall", false);
-    storage.putInt("scheduleactive", isActive ? 1 : 0);
-    storage.end();
-    needsPersist = false;
-  }
-#else
-  needsPersist = false;
+  storage.begin("led-wall", false);
+  storage.putInt("scheduleactive", 0);
+  storage.end();
 #endif
 }
 
 void PluginScheduler::update()
 {
-  checkAndPersist();
+  if (Screen.isPoweredOff())
+    return;
 
   if (!isActive || schedule.empty())
     return;
@@ -129,7 +118,7 @@ bool PluginScheduler::setScheduleByJSONString(String scheduleJson)
     return false;
   }
 
-  JsonDocument doc;
+  DynamicJsonDocument doc(2048);
   DeserializationError error = deserializeJson(doc, scheduleJson);
 
   if (error)
@@ -137,19 +126,20 @@ bool PluginScheduler::setScheduleByJSONString(String scheduleJson)
     return false;
   }
 
+  // Clear in-memory schedule and, if requested, persist the empty state.
   clearSchedule(true);
 
+  // Re-open storage to persist the new schedule string *after* clearing.
+  // (clearSchedule(true) already wrote an empty string; overwrite it now.)
 #ifdef ENABLE_STORAGE
   storage.begin("led-wall");
   storage.putString("schedule", scheduleJson);
   storage.end();
 #endif
 
-  clearSchedule();
-
   for (const auto &item : doc.as<JsonArray>())
   {
-    if (item["pluginId"].is<int>() && item["duration"].is<unsigned long>())
+    if (item.containsKey("pluginId") && item.containsKey("duration"))
     {
       int pluginId = item["pluginId"].as<int>();
       unsigned long duration = item["duration"].as<unsigned long>();

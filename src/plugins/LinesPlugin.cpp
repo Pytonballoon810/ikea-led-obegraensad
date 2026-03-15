@@ -1,3 +1,4 @@
+// Module: Line-based animated pattern plugin.
 #include "plugins/LinesPlugin.h"
 
 void LinesPlugin::setup()

@@ -1,217 +1,180 @@
+// Module: Plugin lifecycle management: register, activate, cycle, and run plugins.
 #include "PluginManager.h"
 #include "scheduler.h"
 
-Plugin::Plugin() : id(-1)
-{
-}
+Plugin::Plugin() : id(-1) {}
 
 void Plugin::setId(int id)
 {
-  this->id = id;
+    this->id = id;
 }
 
 int Plugin::getId() const
 {
-  return id;
+    return id;
 }
 
-void Plugin::teardown()
-{
-}
-void Plugin::loop()
-{
-}
-void Plugin::websocketHook(JsonDocument &request)
-{
-}
+void Plugin::teardown() {}
+void Plugin::loop() {}
+void Plugin::websocketHook(DynamicJsonDocument &request) {}
 
-PluginManager::PluginManager() : nextPluginId(1)
-{
-}
+PluginManager::PluginManager() : activePlugin(nullptr), nextPluginId(1) {}
 
 void PluginManager::init()
 {
-  Screen.clear();
-  std::vector<Plugin *> &allPlugins = pluginManager.getAllPlugins();
+    Screen.clear();
+    std::vector<Plugin *> &allPlugins = pluginManager.getAllPlugins();
 
-  activatePersistedPlugin();
-}
-
-void PluginManager::renderPluginId(int pluginId)
-{
-  if (Scheduler.isActive)
-  {
-    return;
-  }
-
-  Screen.clear();
-
-  std::vector<int> digits;
-
-  if (pluginId >= 10)
-  {
-    digits.push_back((pluginId - pluginId % 10) / 10);
-    digits.push_back(pluginId % 10);
-  }
-  else
-  {
-    digits.push_back(pluginId);
-  }
-
-  if (pluginId >= 10)
-  {
-    Screen.drawNumbers(3, 6, digits, MAX_BRIGHTNESS);
-  }
-  else
-  {
-    Screen.drawNumbers(6, 6, digits, MAX_BRIGHTNESS);
-  }
-
-  unsigned long startTime = millis();
-  while (millis() - startTime < 800)
-  {
-    yield();
-#ifdef ESP32
-    vTaskDelay(pdMS_TO_TICKS(10));
-#else
-    delay(10);
-#endif
-  }
+    activatePersistedPlugin();
 }
 
 void PluginManager::activatePersistedPlugin()
 {
-  std::vector<Plugin *> &allPlugins = pluginManager.getAllPlugins();
+    std::vector<Plugin *> &allPlugins = pluginManager.getAllPlugins();
+    if (allPlugins.empty())
+        return; // no plugins registered yet
+
 #ifdef ENABLE_STORAGE
-  storage.begin("led-wall", true);
-  persistedPluginId = storage.getInt("current-plugin", allPlugins.at(0)->getId());
-  pluginManager.setActivePluginById(persistedPluginId);
-  storage.end();
+    storage.begin("led-wall", true);
+    persistedPluginId = storage.getInt("current-plugin", allPlugins.at(0)->getId());
+    pluginManager.setActivePluginById(persistedPluginId);
+    storage.end();
 #endif
-  if (!activePlugin)
-  {
-    pluginManager.setActivePluginById(allPlugins.at(0)->getId());
-  }
+    if (!activePlugin)
+    {
+        pluginManager.setActivePluginById(allPlugins.at(0)->getId());
+    }
 }
 
 void PluginManager::persistActivePlugin()
 {
 #ifdef ENABLE_STORAGE
-  storage.begin("led-wall", false);
-  if (activePlugin)
-  {
-    persistedPluginId = activePlugin->getId();
-    storage.putInt("current-plugin", persistedPluginId);
-  }
-  storage.end();
+    storage.begin("led-wall", false);
+    if (activePlugin)
+    {
+        persistedPluginId = activePlugin->getId();
+        storage.putInt("current-plugin", persistedPluginId);
+    }
+    storage.end();
 #endif
 }
 
 int PluginManager::getPersistedPluginId()
 {
-  std::vector<Plugin *> &allPlugins = pluginManager.getAllPlugins();
+    // Return the cached in-memory value – opening NVS storage on every
+    // WebSocket info broadcast would be both slow and wear the flash.
 #ifdef ENABLE_STORAGE
-  storage.begin("led-wall", true);
-  persistedPluginId = storage.getInt("current-plugin", allPlugins.at(0)->getId());
-  storage.end();
-  return persistedPluginId;
+    return persistedPluginId;
 #else
-  return -1;
+    return -1;
 #endif
 }
+
 
 int PluginManager::addPlugin(Plugin *plugin)
 {
 
-  plugin->setId(nextPluginId++);
-  plugins.push_back(plugin);
-  return plugin->getId();
+    plugin->setId(nextPluginId++);
+    plugins.push_back(plugin);
+    return plugin->getId();
 }
 
 void PluginManager::setActivePlugin(const char *pluginName)
 {
-  if (activePlugin)
-  {
-    activePlugin->teardown();
-    activePlugin = nullptr;
-  }
-
-  for (Plugin *plugin : plugins)
-  {
-    if (strcmp(plugin->getName(), pluginName) == 0)
+    if (activePlugin)
     {
-      currentStatus = LOADING; // Prevent plugin loop from drawing during ID display
-      activePlugin = plugin;
-      renderPluginId(activePlugin->getId());
-      currentStatus = NONE; // Allow plugin to start drawing
-      activePlugin->setup();
-      break;
+        activePlugin->teardown();
+        // Do NOT busy-wait here – setActivePlugin can be called from an
+        // async WebSocket callback on the TCP task, and a blocking delay()
+        // stalls that task and can trigger the watchdog.
+        activePlugin = nullptr;
     }
-  }
+
+    for (Plugin *plugin : plugins)
+    {
+        if (strcmp(plugin->getName(), pluginName) == 0)
+        {
+            Screen.clear();
+            activePlugin = plugin;
+            activePlugin->setup();
+            break;
+        }
+    }
 }
 
 void PluginManager::setActivePluginById(int pluginId)
 {
-  for (Plugin *plugin : plugins)
-  {
-    if (plugin->getId() == pluginId)
+    for (Plugin *plugin : plugins)
     {
-      setActivePlugin(plugin->getName());
+        if (plugin->getId() == pluginId)
+        {
+            setActivePlugin(plugin->getName());
+        }
     }
-  }
 }
 
 void PluginManager::setupActivePlugin()
 {
-  if (activePlugin)
-  {
-    renderPluginId(activePlugin->getId());
-    activePlugin->setup();
-  }
+    if (activePlugin)
+    {
+        activePlugin->setup();
+    }
 }
 
 void PluginManager::runActivePlugin()
 {
-  if (activePlugin && currentStatus != UPDATE && currentStatus != LOADING &&
-      currentStatus != WSBINARY)
-  {
-    activePlugin->loop();
-  }
+    if (Screen.isPoweredOff())
+    {
+        // Brightness 0 is treated as software power-off.
+        return;
+    }
+
+    if (activePlugin && currentStatus != UPDATE &&
+        currentStatus != LOADING && currentStatus != WSBINARY)
+    {
+        activePlugin->loop();
+    }
 }
 
 Plugin *PluginManager::getActivePlugin() const
 {
-  return activePlugin;
+    return activePlugin;
 }
 
 std::vector<Plugin *> &PluginManager::getAllPlugins()
 {
-  return plugins;
+    return plugins;
 }
 
 size_t PluginManager::getNumPlugins()
 {
-  return plugins.size();
+    return plugins.size();
 }
 
 void PluginManager::activateNextPlugin()
 {
-  if (activePlugin)
-  {
-    if (activePlugin->getId() <= getNumPlugins() - 1)
+    if (!activePlugin || plugins.empty())
     {
-      setActivePluginById(activePlugin->getId() + 1);
+        if (!plugins.empty())
+            setActivePluginById(plugins.front()->getId());
+        return;
     }
-    else
+
+    // Find the position of the active plugin in the list and advance by one,
+    // wrapping around at the end.  Using the plugin list index (not the plugin
+    // id) avoids the size_t underflow that occurred when getNumPlugins()-1 was
+    // computed on an empty vector.
+    size_t numPlugins = plugins.size();
+    for (size_t i = 0; i < numPlugins; i++)
     {
-      setActivePluginById(1);
+        if (plugins[i] == activePlugin)
+        {
+            size_t next = (i + 1) % numPlugins;
+            setActivePluginById(plugins[next]->getId());
+            break;
+        }
     }
-  }
-  else
-  {
-    setActivePluginById(1);
-  }
 #ifdef ENABLE_SERVER
-  sendInfo();
+    sendInfo();
 #endif
 }

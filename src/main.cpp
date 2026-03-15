@@ -1,3 +1,4 @@
+// Module: Firmware entrypoint: hardware setup, plugin registration, and main loop scheduling.
 #include <Arduino.h>
 #include <BfButton.h>
 #include <SPI.h>
@@ -8,6 +9,23 @@
 #endif
 
 #include <WiFiManager.h>
+
+/* ESP32 Arduino 3.x ships HTTP_Method.h which defines HTTP_ANY, HTTP_GET,
+  HTTP_POST etc. as C macros (pulled in by WiFiManager -> WebServer.h).
+  ESPAsyncWebServer 3.x re-declares them as enum members inside the
+  AsyncWebRequestMethod namespace. Undef the macros here so that
+  ESPAsyncWebServer's headers (included below via websocket.h) can define
+  their own names without a collision. */
+#ifdef ESP32
+#undef HTTP_GET
+#undef HTTP_POST
+#undef HTTP_PUT
+#undef HTTP_PATCH
+#undef HTTP_DELETE
+#undef HTTP_OPTIONS
+#undef HTTP_HEAD
+#undef HTTP_ANY
+#endif
 
 #ifdef ESP32
 #include <ESPmDNS.h>
@@ -55,6 +73,7 @@
 #endif
 
 #include "asyncwebserver.h"
+#include "auto_update.h"
 #include "messages.h"
 #include "ota.h"
 #include "screen.h"
@@ -179,6 +198,7 @@ void baseSetup()
   initOTA(server);
   initWebsocketServer(server);
   initWebServer();
+  initAutoUpdate();
 #endif
 
   pluginManager.addPlugin(new DrawPlugin());
@@ -270,6 +290,7 @@ void loop()
 
 #ifdef ENABLE_SERVER
   ElegantOTA.loop();
+  loopAutoUpdate();
 #endif
 
 #if !defined(ESP32) && !defined(ESP8266)

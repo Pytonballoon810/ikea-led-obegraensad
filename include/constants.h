@@ -3,7 +3,10 @@
 #include <Arduino.h>
 
 // disable if you do not want to have online functionality
+// Unit tests can disable server-only dependencies by defining DISABLE_SERVER.
+#ifndef DISABLE_SERVER
 #define ENABLE_SERVER
+#endif
 
 #ifdef ESP32
 #define PIN_ENABLE 26
@@ -32,6 +35,27 @@
 // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.json
 #define NTP_SERVER "de.pool.ntp.org"
 #define TZ_INFO "CET-1CEST,M3.5.0,M10.5.0/3"
+#endif
+
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "dev-local"
+#endif
+
+// Automatic update configuration.
+#ifndef AUTO_UPDATE_ENABLED
+#define AUTO_UPDATE_ENABLED 1
+#endif
+
+#ifndef AUTO_UPDATE_MANIFEST_URL
+#define AUTO_UPDATE_MANIFEST_URL "https://github.com/ph1p/ikea-led-obegraensad/releases/download/auto-main/manifest-esp32dev.json"
+#endif
+
+#ifndef AUTO_UPDATE_INITIAL_DELAY_MS
+#define AUTO_UPDATE_INITIAL_DELAY_MS 120000UL
+#endif
+
+#ifndef AUTO_UPDATE_CHECK_INTERVAL_MS
+#define AUTO_UPDATE_CHECK_INTERVAL_MS 21600000UL
 #endif
 
 #define COLS 16

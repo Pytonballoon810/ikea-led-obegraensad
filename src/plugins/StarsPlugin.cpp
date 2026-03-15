@@ -1,3 +1,4 @@
+// Module: Starfield animation plugin.
 #include "plugins/StarsPlugin.h"
 
 void StarsPlugin::setup()
