@@ -1,0 +1,43 @@
+{
+  "_readme": "Machine-readable plugin registry for this firmware. IDs reflect registration order in src/main.cpp (starting at 1). IDs are stable as long as plugins are only appended; inserting in the middle will shift IDs of all subsequent plugins. Always append new plugins at the END of each registration block to avoid breaking existing integrations. The device exposes the live id↔name mapping at GET /api/info (see 'api_contract' below).",
+  "id_assignment": "sequential, 1-based, determined by addPlugin() call order in src/main.cpp",
+  "api_contract": {
+    "live_plugin_list": "GET http://<device-ip>/api/info  →  JSON: { plugins: [ { id: number, name: string }, ... ] }",
+    "set_active_plugin": "WebSocket → send JSON: { event: 'plugin', plugin: <id> }",
+    "set_active_plugin_http": "PATCH http://<device-ip>/api/plugin?id=<id>",
+    "websocket_state": "WS connects to ws://<device-ip>/ws — on connect, receives full state including 'plugin' (active id) and 'plugins' array"
+  },
+  "note_on_ha_addon": "For the Home Assistant addon plugin picker: prefer querying /api/info at runtime so the picker is always in sync with the actual firmware. If you must hardcode options, use this file as the source of truth and keep names identical to the 'name' field below.",
+  "plugins": [
+    { "id": 1,  "name": "Draw",           "header": "plugins/DrawPlugin.h",         "class": "DrawPlugin",          "requires_server": false, "description": "Interactive pixel drawing canvas" },
+    { "id": 2,  "name": "Breakout",       "header": "plugins/BreakoutPlugin.h",     "class": "BreakoutPlugin",      "requires_server": false, "description": "Breakout brick-breaker game" },
+    { "id": 3,  "name": "Snake",          "header": "plugins/SnakePlugin.h",        "class": "SnakePlugin",         "requires_server": false, "description": "Auto-playing snake game" },
+    { "id": 4,  "name": "GameOfLife",     "header": "plugins/GameOfLifePlugin.h",   "class": "GameOfLifePlugin",    "requires_server": false, "description": "Conway's Game of Life cellular automaton" },
+    { "id": 5,  "name": "Stars",          "header": "plugins/StarsPlugin.h",        "class": "StarsPlugin",         "requires_server": false, "description": "Twinkling starfield animation" },
+    { "id": 6,  "name": "Lines",          "header": "plugins/LinesPlugin.h",        "class": "LinesPlugin",         "requires_server": false, "description": "Animated scrolling lines" },
+    { "id": 7,  "name": "Circle",         "header": "plugins/CirclePlugin.h",       "class": "CirclePlugin",        "requires_server": false, "description": "Expanding/contracting circle animation" },
+    { "id": 8,  "name": "Rain",           "header": "plugins/RainPlugin.h",         "class": "RainPlugin",          "requires_server": false, "description": "Rainfall pixel animation" },
+    { "id": 9,  "name": "Matrix Rain",    "header": "plugins/MatrixRainPlugin.h",   "class": "MatrixRainPlugin",    "requires_server": false, "description": "Matrix-style falling character rain" },
+    { "id": 10, "name": "Firework",       "header": "plugins/FireworkPlugin.h",     "class": "FireworkPlugin",      "requires_server": false, "description": "Firework explosion animation" },
+    { "id": 11, "name": "Blobs",          "header": "plugins/Blob.h",               "class": "BlobPlugin",          "requires_server": false, "description": "Organic blob movement animation" },
+    { "id": 12, "name": "Spiral",         "header": "plugins/SpiralPlugin.h",       "class": "SpiralPlugin",        "requires_server": false, "description": "Rotating spiral animation" },
+    { "id": 13, "name": "Wave",           "header": "plugins/WavePlugin.h",         "class": "WavePlugin",          "requires_server": false, "description": "Sine wave animation" },
+    { "id": 14, "name": "Checkerboard",   "header": "plugins/CheckerboardPlugin.h", "class": "CheckerboardPlugin",  "requires_server": false, "description": "Flashing alternating checkerboard" },
+    { "id": 15, "name": "Radar",          "header": "plugins/RadarPlugin.h",        "class": "RadarPlugin",         "requires_server": false, "description": "Sweeping radar-style animation" },
+    { "id": 16, "name": "Bubbles",        "header": "plugins/BubblesPlugin.h",      "class": "BubblesPlugin",       "requires_server": false, "description": "Rising bubble animation" },
+    { "id": 17, "name": "Comet",          "header": "plugins/CometPlugin.h",        "class": "CometPlugin",         "requires_server": false, "description": "Comet trail animation" },
+    { "id": 18, "name": "Fireflies",      "header": "plugins/FirefliesPlugin.h",    "class": "FirefliesPlugin",     "requires_server": false, "description": "Drifting firefly lights" },
+    { "id": 19, "name": "Meteor Shower",  "header": "plugins/MeteorShowerPlugin.h", "class": "MeteorShowerPlugin",  "requires_server": false, "description": "Diagonal meteor shower animation" },
+    { "id": 20, "name": "Scanlines",      "header": "plugins/ScanlinesPlugin.h",    "class": "ScanlinesPlugin",     "requires_server": false, "description": "Horizontal scanline sweep animation" },
+    { "id": 21, "name": "Sparkle Field",  "header": "plugins/SparkleFieldPlugin.h", "class": "SparkleFieldPlugin",  "requires_server": false, "description": "Random sparkling pixel field" },
+    { "id": 22, "name": "Wave Bars",      "header": "plugins/WaveBarsPlugin.h",     "class": "WaveBarsPlugin",      "requires_server": false, "description": "Animated vertical wave bars" },
+    { "id": 23, "name": "Big Clock",      "header": "plugins/BigClockPlugin.h",     "class": "BigClockPlugin",      "requires_server": true,  "description": "Large-format scrolling digital clock (requires NTP)" },
+    { "id": 24, "name": "Clock",          "header": "plugins/ClockPlugin.h",        "class": "ClockPlugin",         "requires_server": true,  "description": "Small digital clock (requires NTP)" },
+    { "id": 25, "name": "PongClock",      "header": "plugins/PongClockPlugin.h",    "class": "PongClockPlugin",     "requires_server": true,  "description": "Clock displayed as a Pong game (requires NTP)" },
+    { "id": 26, "name": "Ticking Clock",  "header": "plugins/TickingClockPlugin.h", "class": "TickingClockPlugin",  "requires_server": true,  "description": "Analogue-style ticking clock (requires NTP)" },
+    { "id": 27, "name": "Weather",        "header": "plugins/WeatherPlugin.h",      "class": "WeatherPlugin",       "requires_server": true,  "description": "Live weather display (requires internet)" },
+    { "id": 28, "name": "Animation",      "header": "plugins/AnimationPlugin.h",    "class": "AnimationPlugin",     "requires_server": true,  "description": "WebSocket-driven frame animation" },
+    { "id": 29, "name": "DDP",            "header": "plugins/DDPPlugin.h",          "class": "DDPPlugin",           "requires_server": true,  "description": "Distributed Display Protocol receiver" },
+    { "id": 30, "name": "ArtNet",         "header": "plugins/ArtNet.h",             "class": "ArtNetPlugin",        "requires_server": true,  "description": "Art-Net DMX-over-IP receiver" }
+  ]
+}
