@@ -196,6 +196,60 @@ void BreakoutPlugin::initBricks()
   }
 }
 
+void BreakoutPlugin::resetLoopDetector()
+{
+  this->zeroDxStreak = 0;
+  this->repeatedStateStreak = 0;
+  this->lastStateX = -1;
+  this->lastStateY = -1;
+  this->lastStateDx = 0;
+  this->lastStateDy = 0;
+}
+
+void BreakoutPlugin::detectAndRecoverFromLoop(bool destroyedBrickThisFrame)
+{
+  if (destroyedBrickThisFrame)
+  {
+    // Brick hits naturally change trajectories, so reset loop heuristics.
+    resetLoopDetector();
+    return;
+  }
+
+  if (this->ballMovement[0] == 0)
+    this->zeroDxStreak++;
+  else
+    this->zeroDxStreak = 0;
+
+  if (this->ball.x == this->lastStateX &&
+      this->ball.y == this->lastStateY &&
+      this->ballMovement[0] == this->lastStateDx &&
+      this->ballMovement[1] == this->lastStateDy)
+  {
+    this->repeatedStateStreak++;
+  }
+  else
+  {
+    this->repeatedStateStreak = 0;
+  }
+
+  this->lastStateX = this->ball.x;
+  this->lastStateY = this->ball.y;
+  this->lastStateDx = this->ballMovement[0];
+  this->lastStateDy = this->ballMovement[1];
+
+  // If the ball keeps moving straight up/down for too long (or repeatedly
+  // re-enters the same exact state), inject a small horizontal nudge.
+  if (this->zeroDxStreak > 22 || this->repeatedStateStreak > 10)
+  {
+    this->ballMovement[0] = (this->ball.x < (this->X_MAX / 2)) ? 1 : -1;
+    if (this->ballMovement[1] == 0)
+      this->ballMovement[1] = -1;
+
+    this->zeroDxStreak = 0;
+    this->repeatedStateStreak = 0;
+  }
+}
+
 void BreakoutPlugin::newLevel()
 {
   Screen.clear();
@@ -211,10 +265,12 @@ void BreakoutPlugin::newLevel()
   this->ball.x = this->paddle[1].x;
   this->ball.y = this->paddle[1].y - 1;
   this->clearTrail();
+  this->resetLoopDetector();
 
   renderBall();
   this->ballMovement[0] = 1;
   this->ballMovement[1] = -1;
+  this->lastPaddleMoveDirection = 0;
   this->lastBallUpdate = 0;
 
   this->level++;
@@ -253,6 +309,7 @@ void BreakoutPlugin::updateBall()
 
   int dx = this->ballMovement[0];
   int dy = this->ballMovement[1];
+  const uint8_t destroyedBefore = this->destroyedBricks;
   int nx = this->ball.x + dx;
   int ny = this->ball.y + dy;
 
@@ -284,6 +341,20 @@ void BreakoutPlugin::updateBall()
         dx = 1;
       else
         dx = 0;
+
+      // Add "curve" from paddle movement (spin/english effect).
+      // When the paddle is moving during contact, bias horizontal speed
+      // toward that movement direction.
+      if (this->lastPaddleMoveDirection != 0)
+      {
+        dx += this->lastPaddleMoveDirection;
+        if (dx > 1)
+          dx = 1;
+        if (dx < -1)
+          dx = -1;
+        if (dx == 0)
+          dx = this->lastPaddleMoveDirection;
+      }
 
       nx = this->ball.x + dx;
       ny = this->ball.y + dy;
@@ -343,6 +414,10 @@ void BreakoutPlugin::updateBall()
   this->ballMovement[1] = dy;
   this->ball.x = nx;
   this->ball.y = ny;
+
+  const bool destroyedBrickThisFrame = (this->destroyedBricks != destroyedBefore);
+  detectAndRecoverFromLoop(destroyedBrickThisFrame);
+
   shiftTrail(prevBallX, prevBallY);
   renderTrail();
   renderBall();
@@ -414,11 +489,19 @@ void BreakoutPlugin::updatePaddle()
     moveDirection = -1;
 
   if (moveDirection == 0)
+  {
+    this->lastPaddleMoveDirection = 0;
     return;
+  }
 
   int newPaddlePosition = this->paddle[0].x + moveDirection;
   if (newPaddlePosition < 0 || newPaddlePosition + this->PADDLE_WIDTH > this->X_MAX)
+  {
+    this->lastPaddleMoveDirection = 0;
     return;
+  }
+
+  this->lastPaddleMoveDirection = moveDirection;
 
   for (byte i = 0; i < this->PADDLE_WIDTH; i++)
   {

@@ -37,8 +37,15 @@ private:
   int ballMovement[2];
   uint8_t ballDelay;
   uint8_t score;
+  int8_t lastPaddleMoveDirection = 0;
   unsigned long lastBallUpdate = 0;
   unsigned long winAnimStart = 0;
+  uint8_t zeroDxStreak = 0;
+  uint8_t repeatedStateStreak = 0;
+  int8_t lastStateX = -1;
+  int8_t lastStateY = -1;
+  int8_t lastStateDx = 0;
+  int8_t lastStateDy = 0;
 
   int brickIndexAt(int x, int y) const;
   bool isPaddleCell(int x, int y) const;
@@ -54,6 +61,8 @@ private:
   void playWinAnimation();
   void initGame();
   void initBricks();
+  void resetLoopDetector();
+  void detectAndRecoverFromLoop(bool destroyedBrickThisFrame);
   void newLevel();
   void updateBall();
   void hitBrick(unsigned char i);
