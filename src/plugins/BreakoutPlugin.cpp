@@ -14,6 +14,64 @@ int BreakoutPlugin::brickIndexAt(int x, int y) const
   return -1;
 }
 
+bool BreakoutPlugin::isPaddleCell(int x, int y) const
+{
+  for (int i = 0; i < this->PADDLE_WIDTH; i++)
+  {
+    if (this->paddle[i].x == x && this->paddle[i].y == y)
+      return true;
+  }
+  return false;
+}
+
+bool BreakoutPlugin::isBrickCell(int x, int y) const
+{
+  return brickIndexAt(x, y) >= 0;
+}
+
+bool BreakoutPlugin::isForegroundCell(int x, int y) const
+{
+  return isPaddleCell(x, y) || isBrickCell(x, y);
+}
+
+void BreakoutPlugin::clearTrail()
+{
+  for (int i = 0; i < this->TRAIL_LENGTH; i++)
+  {
+    this->ballTrail[i].x = -1;
+    this->ballTrail[i].y = -1;
+  }
+}
+
+void BreakoutPlugin::shiftTrail(int prevX, int prevY)
+{
+  for (int i = this->TRAIL_LENGTH - 1; i > 0; i--)
+  {
+    this->ballTrail[i] = this->ballTrail[i - 1];
+  }
+  this->ballTrail[0].x = prevX;
+  this->ballTrail[0].y = prevY;
+}
+
+void BreakoutPlugin::renderTrail()
+{
+  static const uint8_t trailBrightness[BreakoutPlugin::TRAIL_LENGTH] = {70, 45, 28, 16};
+
+  for (int i = 0; i < this->TRAIL_LENGTH; i++)
+  {
+    const int x = this->ballTrail[i].x;
+    const int y = this->ballTrail[i].y;
+    if (x < 0 || y < 0)
+      continue;
+    if (x == this->ball.x && y == this->ball.y)
+      continue;
+    if (isForegroundCell(x, y))
+      continue;
+
+    Screen.setPixelAtIndex(y * this->X_MAX + x, this->LED_TYPE_ON, trailBrightness[i]);
+  }
+}
+
 void BreakoutPlugin::removeBrick(int index)
 {
   if (index < 0 || index >= this->BRICK_AMOUNT)
@@ -87,7 +145,7 @@ void BreakoutPlugin::renderPaddle()
 
 void BreakoutPlugin::renderBall()
 {
-  Screen.setPixelAtIndex(this->ball.y * this->X_MAX + this->ball.x, this->LED_TYPE_ON, 100);
+  Screen.setPixelAtIndex(this->ball.y * this->X_MAX + this->ball.x, this->LED_TYPE_ON, 130);
 }
 
 void BreakoutPlugin::playWinAnimation()
@@ -152,6 +210,7 @@ void BreakoutPlugin::newLevel()
 
   this->ball.x = this->paddle[1].x;
   this->ball.y = this->paddle[1].y - 1;
+  this->clearTrail();
 
   renderBall();
   this->ballMovement[0] = 1;
@@ -170,8 +229,27 @@ void BreakoutPlugin::updateBall()
   }
 
   this->lastBallUpdate = millis();
+  const int prevBallX = this->ball.x;
+  const int prevBallY = this->ball.y;
+
+  // Clear prior trail footprint before drawing new frame's trail.
+  for (int i = 0; i < this->TRAIL_LENGTH; i++)
+  {
+    const int tx = this->ballTrail[i].x;
+    const int ty = this->ballTrail[i].y;
+    if (tx < 0 || ty < 0)
+      continue;
+    if (!isForegroundCell(tx, ty))
+    {
+      Screen.setPixelAtIndex(ty * this->X_MAX + tx, this->LED_TYPE_OFF);
+    }
+  }
+
   // Erase old ball pixel before recomputing position.
-  Screen.setPixelAtIndex(this->ball.y * this->X_MAX + this->ball.x, this->LED_TYPE_OFF);
+  if (!isForegroundCell(this->ball.x, this->ball.y))
+  {
+    Screen.setPixelAtIndex(this->ball.y * this->X_MAX + this->ball.x, this->LED_TYPE_OFF);
+  }
 
   int dx = this->ballMovement[0];
   int dy = this->ballMovement[1];
@@ -179,12 +257,12 @@ void BreakoutPlugin::updateBall()
   int ny = this->ball.y + dy;
 
   // Wall collisions.
-  if (nx <= 0 || nx >= (this->X_MAX - 1))
+  if (nx < 0 || nx > (this->X_MAX - 1))
   {
     dx *= -1;
     nx = this->ball.x + dx;
   }
-  if (ny <= 0)
+  if (ny < 0)
   {
     dy *= -1;
     ny = this->ball.y + dy;
@@ -265,6 +343,8 @@ void BreakoutPlugin::updateBall()
   this->ballMovement[1] = dy;
   this->ball.x = nx;
   this->ball.y = ny;
+  shiftTrail(prevBallX, prevBallY);
+  renderTrail();
   renderBall();
 
   if (this->destroyedBricks >= this->BRICK_AMOUNT)
@@ -372,7 +452,7 @@ void BreakoutPlugin::loop()
   case this->GAME_STATE_RUNNING:
     this->updateBall();
     this->updatePaddle();
-    delay(25);
+    delay(12);
     break;
   case this->GAME_STATE_WIN:
     this->playWinAnimation();

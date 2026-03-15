@@ -8,10 +8,11 @@ private:
   static const uint8_t X_MAX = 16;
   static const uint8_t Y_MAX = 16;
   static const uint8_t BRICK_AMOUNT = X_MAX * 4;
-  static const uint8_t BALL_DELAY_MAX = 200;
-  static const uint8_t BALL_DELAY_MIN = 100;
-  static const uint8_t BALL_DELAY_STEP = 5;
+  static const uint8_t BALL_DELAY_MAX = 140;
+  static const uint8_t BALL_DELAY_MIN = 55;
+  static const uint8_t BALL_DELAY_STEP = 4;
   static const uint8_t PADDLE_WIDTH = 5;
+  static const uint8_t TRAIL_LENGTH = 4;
   static const uint8_t LED_TYPE_OFF = 0;
   static const uint8_t LED_TYPE_ON = 1;
   static const uint8_t GAME_STATE_RUNNING = 1;
@@ -30,6 +31,7 @@ private:
   unsigned char destroyedBricks;
   Coords paddle[BreakoutPlugin::PADDLE_WIDTH];
   Coords bricks[BreakoutPlugin::BRICK_AMOUNT];
+  Coords ballTrail[BreakoutPlugin::TRAIL_LENGTH];
   Coords ball;
 
   int ballMovement[2];
@@ -39,6 +41,12 @@ private:
   unsigned long winAnimStart = 0;
 
   int brickIndexAt(int x, int y) const;
+  bool isPaddleCell(int x, int y) const;
+  bool isBrickCell(int x, int y) const;
+  bool isForegroundCell(int x, int y) const;
+  void clearTrail();
+  void shiftTrail(int prevX, int prevY);
+  void renderTrail();
   void removeBrick(int index);
   int predictBallLandingX() const;
   void renderPaddle();
