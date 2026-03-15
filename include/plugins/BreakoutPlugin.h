@@ -9,8 +9,9 @@ private:
   static const uint8_t Y_MAX = 16;
   static const uint8_t BRICK_AMOUNT = X_MAX * 4;
   static const uint8_t BALL_DELAY_MAX = 110;
-  static const uint8_t BALL_DELAY_MIN = 35;
+  static const uint8_t BALL_DELAY_MIN = 52;
   static const uint8_t BALL_DELAY_STEP = 4;
+  static const uint8_t SPEED_RAMP_BOUNCES = 3;
   static const uint8_t PADDLE_WIDTH = 5;
   static const uint8_t TRAIL_LENGTH = 3;
   static const uint8_t LED_TYPE_OFF = 0;
@@ -37,6 +38,7 @@ private:
   int ballMovement[2];
   uint8_t ballDelay;
   uint8_t score;
+  uint8_t speedRampCounter = 0;
   int8_t lastPaddleMoveDirection = 0;
   uint8_t curveFramesRemaining = 0;
   int8_t curveDirection = 0;

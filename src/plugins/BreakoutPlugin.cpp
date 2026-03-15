@@ -270,6 +270,7 @@ void BreakoutPlugin::newLevel()
   renderBall();
   this->ballMovement[0] = 1;
   this->ballMovement[1] = -1;
+  this->speedRampCounter = 0;
   this->lastPaddleMoveDirection = 0;
   this->curveDirection = 0;
   this->curveFramesRemaining = 0;
@@ -381,6 +382,13 @@ void BreakoutPlugin::updateBall()
       {
         this->curveDirection = 0;
         this->curveFramesRemaining = 0;
+
+        // Add slight controlled variation for center/neutral hits so
+        // trajectories don't repeat the same lane every rally.
+        if (dx == 0 || (random(100) < 25))
+        {
+          dx = (random(2) == 0) ? -1 : 1;
+        }
       }
 
       nx = this->ball.x + dx;
@@ -429,6 +437,16 @@ void BreakoutPlugin::updateBall()
       verticalBounceOccurred = true;
     }
 
+    // Minor randomization on brick contacts keeps animation less repetitive
+    // without destroying player-readability.
+    if (random(100) < 18)
+    {
+      if (dx == 0)
+        dx = (random(2) == 0) ? -1 : 1;
+      else if (random(2) == 0)
+        dx *= -1;
+    }
+
     nx = this->ball.x + dx;
     ny = this->ball.y + dy;
   }
@@ -443,10 +461,19 @@ void BreakoutPlugin::updateBall()
   this->ballMovement[0] = dx;
   this->ballMovement[1] = dy;
 
-  // Progressive speed-up: longer up/down rallies increase ball speed.
-  if (verticalBounceOccurred && this->ballDelay > this->BALL_DELAY_MIN)
+  // Progressive speed-up: increase speed every N vertical bounces, capped to
+  // keep gameplay winnable.
+  if (verticalBounceOccurred)
   {
-    this->ballDelay--;
+    this->speedRampCounter++;
+    if (this->speedRampCounter >= this->SPEED_RAMP_BOUNCES)
+    {
+      this->speedRampCounter = 0;
+      if (this->ballDelay > this->BALL_DELAY_MIN)
+      {
+        this->ballDelay--;
+      }
+    }
   }
 
   this->ball.x = nx;
