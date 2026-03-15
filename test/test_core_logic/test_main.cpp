@@ -1,12 +1,45 @@
 #include <Arduino.h>
 #include <unity.h>
 
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <ElegantOTA.h>
+
 #include "constants.h"
 #include "PluginManager.h"
 #include "scheduler.h"
 
 SYSTEM_STATUS currentStatus = NONE;
 PluginManager pluginManager;
+
+namespace {
+AsyncWebServer recoveryServer(80);
+bool recoveryStarted = false;
+
+void startOtaRecoveryModeOnce() {
+  if (recoveryStarted) {
+    return;
+  }
+
+  // Provide a deterministic recovery network so the real firmware can be
+  // uploaded right after test images are flashed via `pio test`.
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("IKEA-Test-OTA", "adminadmin");
+
+  recoveryServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "Test image OTA mode. Open /update to flash real firmware.");
+  });
+
+  ElegantOTA.begin(&recoveryServer);
+  ElegantOTA.setAuth("admin", "admin");
+  recoveryServer.begin();
+  recoveryStarted = true;
+
+  Serial.println("[TEST] OTA recovery AP: IKEA-Test-OTA");
+  Serial.println("[TEST] OTA credentials: admin / admin");
+  Serial.println("[TEST] OTA URL: http://192.168.4.1/update");
+}
+}  // namespace
 
 class DummyPlugin : public Plugin {
 public:
@@ -123,4 +156,13 @@ void loop() {
   RUN_TEST(test_plugin_manager_add_set_and_cycle_plugins);
 
   UNITY_END();
+
+  startOtaRecoveryModeOnce();
+
+  // Keep test image alive in OTA recovery mode so a real firmware can be
+  // flashed without USB after test execution.
+  for (;;) {
+    ElegantOTA.loop();
+    delay(20);
+  }
 }
