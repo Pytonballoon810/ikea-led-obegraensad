@@ -231,6 +231,36 @@ bool BreakoutPlugin::rallyPathMatchesPrevious() const
              sizeof(uint64_t) * this->PATH_WORDS) == 0;
 }
 
+void BreakoutPlugin::recordPaddleHitX(int x)
+{
+  for (int i = 0; i < 3; i++)
+  {
+    this->recentPaddleHitX[i] = this->recentPaddleHitX[i + 1];
+  }
+  this->recentPaddleHitX[3] = (int8_t)x;
+
+  if (this->paddleHitHistoryCount < 4)
+    this->paddleHitHistoryCount++;
+
+  if (this->recentPaddleHitX[2] == this->recentPaddleHitX[3])
+    this->samePaddleHitStreak++;
+  else
+    this->samePaddleHitStreak = 0;
+}
+
+bool BreakoutPlugin::hasAlternatingPaddlePattern() const
+{
+  if (this->paddleHitHistoryCount < 4)
+    return false;
+
+  const int a = this->recentPaddleHitX[0];
+  const int b = this->recentPaddleHitX[1];
+  const int c = this->recentPaddleHitX[2];
+  const int d = this->recentPaddleHitX[3];
+
+  return (a == c && b == d && a != b);
+}
+
 void BreakoutPlugin::evaluateRallyPathOnPaddleHit()
 {
   const bool currentEmpty = rallyPathIsEmpty(this->currentRallyPath);
@@ -339,6 +369,10 @@ void BreakoutPlugin::newLevel()
   this->curveFramesRemaining = 0;
   this->randomizeNextPaddleBounce = false;
   this->repeatedPathOverlayStreak = 0;
+  this->paddleHitHistoryCount = 0;
+  this->samePaddleHitStreak = 0;
+  for (int i = 0; i < 4; i++)
+    this->recentPaddleHitX[i] = -1;
   clearRallyPath(this->currentRallyPath);
   clearRallyPath(this->previousRallyPath);
   markRallyPathCell(this->ball.x, this->ball.y);
@@ -462,14 +496,22 @@ void BreakoutPlugin::updateBall()
       if (this->randomizeNextPaddleBounce)
       {
         // Break repeated loop patterns by forcing a fresh outgoing angle.
-        dx = (random(2) == 0) ? -1 : 1;
+        dx = (dx >= 0) ? -1 : 1;
         this->curveDirection = dx;
-        this->curveFramesRemaining = 2;
+        this->curveFramesRemaining = 4;
         this->randomizeNextPaddleBounce = false;
       }
 
       nx = this->ball.x + dx;
       ny = this->ball.y + dy;
+
+      // Track paddle-contact sequence and detect common A-B-A-B / same-spot
+      // ping-pong patterns that path overlays may miss.
+      recordPaddleHitX(nx);
+      if (this->samePaddleHitStreak >= 2 || hasAlternatingPaddlePattern())
+      {
+        this->randomizeNextPaddleBounce = true;
+      }
 
       // End of one rally segment (between paddle contacts).
       evaluateRallyPathOnPaddleHit();

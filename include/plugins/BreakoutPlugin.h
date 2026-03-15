@@ -55,6 +55,9 @@ private:
   uint64_t previousRallyPath[BreakoutPlugin::PATH_WORDS] = {0, 0, 0, 0};
   uint8_t repeatedPathOverlayStreak = 0;
   bool randomizeNextPaddleBounce = false;
+  int8_t recentPaddleHitX[4] = {-1, -1, -1, -1};
+  uint8_t paddleHitHistoryCount = 0;
+  uint8_t samePaddleHitStreak = 0;
 
   int brickIndexAt(int x, int y) const;
   bool isPaddleCell(int x, int y) const;
@@ -74,6 +77,8 @@ private:
   void markRallyPathCell(int x, int y);
   bool rallyPathIsEmpty(const uint64_t *path) const;
   bool rallyPathMatchesPrevious() const;
+  void recordPaddleHitX(int x);
+  bool hasAlternatingPaddlePattern() const;
   void evaluateRallyPathOnPaddleHit();
   void resetLoopDetector();
   void detectAndRecoverFromLoop(bool destroyedBrickThisFrame);
