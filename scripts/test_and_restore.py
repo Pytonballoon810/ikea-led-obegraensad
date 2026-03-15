@@ -158,7 +158,7 @@ def main() -> int:
         default=os.getenv("RECOVERY_HOST", ""),
         help=(
             "Host/IP to probe for test-firmware recovery readiness. "
-            "Default: ota-url host (or 192.168.4.1 when --connect-recovery-ap is used)."
+            "Default: ota-url host."
         ),
     )
     parser.add_argument(
@@ -186,13 +186,13 @@ def main() -> int:
         return 2
     ota_host = ota_parts.hostname or ""
 
-    # If not explicitly provided, use OTA target host for recovery probing.
-    # When AP auto-connect is requested, default to test AP gateway.
+    # If not explicitly provided, probe OTA target host by default.
+    # Add AP gateway only when AP mode is explicitly requested.
     if args.recovery_host:
         recovery_hosts = [args.recovery_host]
     else:
         recovery_hosts = [ota_host]
-        if "192.168.4.1" not in recovery_hosts:
+        if args.connect_recovery_ap and "192.168.4.1" not in recovery_hosts:
             recovery_hosts.append("192.168.4.1")
 
     try:
