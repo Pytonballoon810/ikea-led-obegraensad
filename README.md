@@ -107,6 +107,51 @@ code .
 6. **Upload to ESP32**
    - Click `PlatformIO Upload` (bottom right) to upload the firmware to the ESP32.
 
+### OTA Upload From PlatformIO (No Script Edits Needed)
+
+The repository includes `upload.py` and preconfigured OTA environments in `platformio.ini`.
+You only set environment variables before running upload.
+
+The OTA environments consume these `platformio.ini` keys internally:
+`custom_ota_url`, `custom_ota_username`, `custom_ota_password`, `custom_ota_auth_type`.
+For day-to-day usage, using environment variables is usually easiest.
+
+Supported by the script:
+- ElegantOTA 3.x flow (`/ota/start` + `/ota/upload`) when `OTA_URL` is a host URL.
+- Legacy AsyncElegantOTA `/update` endpoint when `OTA_URL` ends with `/update`.
+
+Required variables:
+
+```bash
+export OTA_URL="http://192.168.5.60"
+export OTA_USERNAME="admin"
+export OTA_PASSWORD="admin"
+```
+
+Optional variable:
+
+```bash
+export OTA_AUTH_TYPE="digest"   # digest | basic | none
+```
+
+Then run OTA upload with one of the dedicated environments:
+
+```bash
+pio run -e esp32dev-ota -t upload
+```
+
+or:
+
+```bash
+pio run -e esp32c3-ota -t upload
+```
+
+If your target still uses the old endpoint, set:
+
+```bash
+export OTA_URL="http://<device-ip>/update"
+```
+
 ### Configuring WiFi with WiFi manager
 
 _Note:_ The WiFi manager only works on ESP32. For ESP8266, `WIFI_SSID` and `WIFI_PASSWORD` need to be provided in `secrets.h`.
