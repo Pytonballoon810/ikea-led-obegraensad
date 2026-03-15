@@ -152,6 +152,32 @@ If your target still uses the old endpoint, set:
 export OTA_URL="http://<device-ip>/update"
 ```
 
+### Unit Testing (src Focus)
+
+The project includes an embedded Unity test environment for core `src` logic:
+
+```bash
+pio test -e esp32dev-unit
+```
+
+This environment is intended for firmware logic tests (scheduler/plugin manager/screen)
+and uses a test-specific build profile:
+- `test_build_src = true`
+- `build_src_filter` to compile only the required `src/*.cpp` files for tests
+- `-DDISABLE_SERVER` to remove web/OTA dependencies from test builds
+
+Run a single suite with:
+
+```bash
+pio test -e esp32dev-unit -f test_core_logic
+```
+
+or:
+
+```bash
+pio test -e esp32dev-unit -f test_screen_logic
+```
+
 ### Configuring WiFi with WiFi manager
 
 _Note:_ The WiFi manager only works on ESP32. For ESP8266, `WIFI_SSID` and `WIFI_PASSWORD` need to be provided in `secrets.h`.
