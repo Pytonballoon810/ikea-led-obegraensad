@@ -17,7 +17,7 @@ void Plugin::teardown() {}
 void Plugin::loop() {}
 void Plugin::websocketHook(DynamicJsonDocument &request) {}
 
-PluginManager::PluginManager() : nextPluginId(1) {}
+PluginManager::PluginManager() : activePlugin(nullptr), nextPluginId(1) {}
 
 void PluginManager::init()
 {
