@@ -21,21 +21,55 @@ Any value can also be supplied via environment variables:
 """
 
 import hashlib
+import importlib
 import os
+from typing import Any, TYPE_CHECKING
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
+from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
-Import("env")
+if TYPE_CHECKING:
+    # Provided by PlatformIO/SCons at runtime.
+    env: Any
+
+# Keep a local symbol so static analyzers don't report "env is unbound".
+env: Any = None
 
 try:
-    from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
-    from tqdm import tqdm
+    Import("env")  # type: ignore[name-defined]
+except NameError:
+    # Allows static analysis (Pylance/pyright) outside PlatformIO runtime.
+    def Import(*_args, **_kwargs):  # type: ignore[no-redef]
+        raise RuntimeError("This script must be executed by PlatformIO/SCons")
+
+
+class _DummyEnv:
+    def Execute(self, *_args, **_kwargs):
+        return None
+
+    def Replace(self, *_args, **_kwargs):
+        return None
+
+    def GetProjectOption(self, *_args, **_kwargs):
+        return None
+
+
+if env is None:
+    env = _DummyEnv()
+
+try:
+    requests_toolbelt_module = importlib.import_module("requests_toolbelt")
+    tqdm_module = importlib.import_module("tqdm")
 except ImportError:
     env.Execute("$PYTHONEXE -m pip install requests_toolbelt")
     env.Execute("$PYTHONEXE -m pip install tqdm")
-    from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
-    from tqdm import tqdm
+    requests_toolbelt_module = importlib.import_module("requests_toolbelt")
+    tqdm_module = importlib.import_module("tqdm")
+
+MultipartEncoder = requests_toolbelt_module.MultipartEncoder
+MultipartEncoderMonitor = requests_toolbelt_module.MultipartEncoderMonitor
+tqdm = tqdm_module.tqdm
 
 
 def _option(name, env_name=None, default=None):
@@ -68,8 +102,8 @@ def _build_auth(auth_type, username, password):
     if auth_type == "none":
         return None
     if auth_type == "basic":
-        return requests.auth.HTTPBasicAuth(username or "", password or "")
-    return requests.auth.HTTPDigestAuth(username or "", password or "")
+        return HTTPBasicAuth(username or "", password or "")
+    return HTTPDigestAuth(username or "", password or "")
 
 
 def _request_ok(response, action):
