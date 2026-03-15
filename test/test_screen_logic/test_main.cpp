@@ -16,6 +16,14 @@ namespace {
 AsyncWebServer recoveryServer(80);
 bool recoveryStarted = false;
 
+void showTestIndicatorT() {
+  Screen.clear();
+  std::vector<int> bits = Screen.readBytes(letterT);
+  for (size_t i = 0; i < bits.size(); i++) {
+    Screen.setPixelAtIndex(static_cast<uint8_t>(i), bits[i]);
+  }
+}
+
 void startOtaRecoveryModeOnce() {
   if (recoveryStarted) {
     return;
@@ -109,6 +117,9 @@ void loop() {
     return;
   }
   ran = true;
+
+  // Match OTA UX style by showing a large status letter while tests run.
+  showTestIndicatorT();
 
   UNITY_BEGIN();
 

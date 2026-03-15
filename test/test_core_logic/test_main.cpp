@@ -8,6 +8,7 @@
 #include "constants.h"
 #include "PluginManager.h"
 #include "scheduler.h"
+#include "screen.h"
 
 SYSTEM_STATUS currentStatus = NONE;
 PluginManager pluginManager;
@@ -15,6 +16,14 @@ PluginManager pluginManager;
 namespace {
 AsyncWebServer recoveryServer(80);
 bool recoveryStarted = false;
+
+void showTestIndicatorT() {
+  Screen.clear();
+  std::vector<int> bits = Screen.readBytes(letterT);
+  for (size_t i = 0; i < bits.size(); i++) {
+    Screen.setPixelAtIndex(static_cast<uint8_t>(i), bits[i]);
+  }
+}
 
 void startOtaRecoveryModeOnce() {
   if (recoveryStarted) {
@@ -159,6 +168,9 @@ void loop() {
     return;
   }
   ran = true;
+
+  // Match OTA UX style by showing a large status letter while tests run.
+  showTestIndicatorT();
 
   UNITY_BEGIN();
 

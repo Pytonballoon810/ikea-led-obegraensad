@@ -7,6 +7,7 @@
 
 extern std::vector<int> letterU;
 extern std::vector<int> letterR;
+extern std::vector<int> letterT;
 extern std::vector<int> degreeSymbol;
 extern std::vector<int> minusSymbol;
 

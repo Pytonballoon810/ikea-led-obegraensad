@@ -165,6 +165,7 @@ and uses a test-specific build profile:
 - `test_build_src = true`
 - `build_src_filter` to compile only the required `src/*.cpp` files for tests
 - `-DDISABLE_SERVER` to remove web/OTA dependencies from test builds
+- Displays a large `T` on the LED matrix while tests are running
 
 After tests finish, the test image enters **OTA recovery mode** so you can
 flash the real firmware without reconnecting USB:
