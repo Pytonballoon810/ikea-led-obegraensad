@@ -1,8 +1,31 @@
 // Module: HTTP API handlers for plugins, brightness, schedule, and messages.
 #include "webhandler.h"
+#include "config.h"
 #include "messages.h"
 #include "scheduler.h"
 #include "websocket.h"
+
+void sendJsonSuccess(AsyncWebServerRequest *request, const char *message)
+{
+    StaticJsonDocument<256> jsonResponse;
+    jsonResponse["status"] = "success";
+    jsonResponse["message"] = message;
+
+    String output;
+    serializeJson(jsonResponse, output);
+    request->send(200, "application/json", output);
+}
+
+void sendJsonError(AsyncWebServerRequest *request, int statusCode, const char *error)
+{
+    StaticJsonDocument<256> jsonResponse;
+    jsonResponse["error"] = true;
+    jsonResponse["message"] = error;
+
+    String output;
+    serializeJson(jsonResponse, output);
+    request->send(statusCode, "application/json", output);
+}
 
 // http://your-server/message?text=Hello&repeat=3&id=42&graph=1,2,3,4
 void handleMessage(AsyncWebServerRequest *request)
@@ -292,4 +315,52 @@ void handleClearStorage(AsyncWebServerRequest *request)
     serializeJson(jsonResponse, output);
     request->send(200, "application/json", output);
 #endif
+}
+
+void handleGetConfig(AsyncWebServerRequest *request)
+{
+    request->send(200, "application/json", config.toJson());
+}
+
+void handleSetConfigBody(AsyncWebServerRequest *request,
+                         uint8_t *data,
+                         size_t len,
+                         size_t index,
+                         size_t total)
+{
+    static String requestBody;
+
+    if (index == 0)
+    {
+        requestBody = "";
+        requestBody.reserve(total);
+    }
+
+    for (size_t i = 0; i < len; i++)
+    {
+        requestBody += static_cast<char>(data[i]);
+    }
+
+    if ((index + len) < total)
+    {
+        return;
+    }
+
+    if (!config.fromJson(requestBody))
+    {
+        sendJsonError(request, 400, "Invalid JSON payload");
+        requestBody = "";
+        return;
+    }
+
+    config.save();
+    sendJsonSuccess(request, "Configuration saved");
+    requestBody = "";
+}
+
+void handleResetConfig(AsyncWebServerRequest *request)
+{
+    config.setDefaults();
+    config.save();
+    sendJsonSuccess(request, "Configuration reset to defaults");
 }

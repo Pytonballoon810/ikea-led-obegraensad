@@ -58,6 +58,11 @@ void sendInfo()
   jsonDocument.clear();
 }
 
+void sendWSMessage(String &message)
+{
+  ws.textAll(message);
+}
+
 /**
  * ESPAsyncWebServer WebSocket event handler.
  *

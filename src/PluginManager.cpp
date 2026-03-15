@@ -16,7 +16,7 @@ int Plugin::getId() const
 
 void Plugin::teardown() {}
 void Plugin::loop() {}
-void Plugin::websocketHook(DynamicJsonDocument &request) {}
+void Plugin::websocketHook(JsonDocument &request) {}
 
 PluginManager::PluginManager() : activePlugin(nullptr), nextPluginId(1) {}
 
