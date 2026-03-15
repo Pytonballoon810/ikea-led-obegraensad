@@ -627,10 +627,10 @@ curl http://your-server/api/clearstorage
 
 - `frontend` contains the web code.
 
-  - First run `pnpm install`
+  - First run `npm install`
   - Set your device IP inside the `.env` file
-  - Start the server with `pnpm dev`
-  - Build it with `pnpm build`. This command creates the `webgui.cpp` for you.
+  - Start the server with `npm run dev`
+  - Build it with `npm run build`. This command creates the `webgui.cpp` for you.
 
 - Build frontend using `Docker`
   - From the root of the repo, run `docker compose run node`
