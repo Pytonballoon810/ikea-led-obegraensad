@@ -1,7 +1,10 @@
 #pragma once
 
 // disable if you do not want to have online functionality
+// Unit tests can disable server-only dependencies by defining DISABLE_SERVER.
+#ifndef DISABLE_SERVER
 #define ENABLE_SERVER
+#endif
 
 #ifdef ESP32
 #define PIN_ENABLE 26
