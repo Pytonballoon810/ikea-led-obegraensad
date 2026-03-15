@@ -5,7 +5,6 @@
 class BreakoutPlugin : public Plugin
 {
 private:
-  static const uint8_t DEBOUNCE_TIME = 100;
   static const uint8_t X_MAX = 16;
   static const uint8_t Y_MAX = 16;
   static const uint8_t BRICK_AMOUNT = X_MAX * 4;
@@ -13,18 +12,17 @@ private:
   static const uint8_t BALL_DELAY_MIN = 100;
   static const uint8_t BALL_DELAY_STEP = 5;
   static const uint8_t PADDLE_WIDTH = 5;
-  static const uint8_t DIRECTION_NONE = 0;
-  static const uint8_t DIRECTION_LEFT = 1;
-  static const uint8_t DIRECTION_RIGHT = 2;
   static const uint8_t LED_TYPE_OFF = 0;
   static const uint8_t LED_TYPE_ON = 1;
   static const uint8_t GAME_STATE_RUNNING = 1;
   static const uint8_t GAME_STATE_END = 2;
   static const uint8_t GAME_STATE_LEVEL = 3;
+  static const uint8_t GAME_STATE_WIN = 4;
+
   struct Coords
   {
-    unsigned char x;
-    unsigned char y;
+    int8_t x;
+    int8_t y;
   };
 
   unsigned char gameState;
@@ -38,8 +36,14 @@ private:
   uint8_t ballDelay;
   uint8_t score;
   unsigned long lastBallUpdate = 0;
+  unsigned long winAnimStart = 0;
 
-  void resetLEDs();
+  int brickIndexAt(int x, int y) const;
+  void removeBrick(int index);
+  int predictBallLandingX() const;
+  void renderPaddle();
+  void renderBall();
+  void playWinAnimation();
   void initGame();
   void initBricks();
   void newLevel();
