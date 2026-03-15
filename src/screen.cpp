@@ -12,14 +12,68 @@ uint8_t Screen_::getCurrentBrightness() const
   return brightness_;
 }
 
+bool Screen_::isPoweredOff() const
+{
+  return poweredOff_;
+}
+
+void Screen_::startRenderTimer()
+{
+  if (!renderTimerInitialized_)
+    return;
+
+#ifdef ESP32
+  if (screenTimer_)
+  {
+    timerStart(screenTimer_);
+  }
+#endif
+
+#ifdef ESP8266
+  timer1_enable(TIM_DIV256, TIM_EDGE, TIM_SINGLE);
+  timer1_write(100);
+#endif
+
+  poweredOff_ = false;
+}
+
+void Screen_::stopRenderTimer()
+{
+  if (!renderTimerInitialized_)
+    return;
+
+#ifdef ESP32
+  if (screenTimer_)
+  {
+    timerStop(screenTimer_);
+  }
+#endif
+
+#ifdef ESP8266
+  timer1_disable();
+#endif
+
+  poweredOff_ = true;
+}
+
 void Screen_::setBrightness(uint8_t brightness, bool shouldStore)
 {
+  const bool wasOff = (brightness_ == 0);
   brightness_ = brightness;
 
 #ifndef ESP8266
   // analogWrite disable the timer1 interrupt on esp8266
   analogWrite(PIN_ENABLE, 255 - brightness);
 #endif
+
+  if (!wasOff && brightness_ == 0)
+  {
+    stopRenderTimer();
+  }
+  else if (wasOff && brightness_ > 0)
+  {
+    startRenderTimer();
+  }
 
 #ifdef ENABLE_STORAGE
   if (shouldStore)
@@ -183,16 +237,28 @@ void Screen_::setup()
   timer1_attachInterrupt(&onScreenTimer);
   timer1_enable(TIM_DIV256, TIM_EDGE, TIM_SINGLE);
   timer1_write(100);
+  renderTimerInitialized_ = true;
 #endif
 
 #ifdef ESP32
   SPI.begin(PIN_CLOCK, 34, PIN_DATA, 25); // SCLK, MISO, MOSI, SS
   SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
 
-  hw_timer_t *Screen_timer = timerBegin(1000000);
-  timerAttachInterrupt(Screen_timer, &onScreenTimer);
-  timerAlarm(Screen_timer, TIMER_INTERVAL_US, true, 0);
+  screenTimer_ = timerBegin(1000000);
+  timerAttachInterrupt(screenTimer_, &onScreenTimer);
+  timerAlarm(screenTimer_, TIMER_INTERVAL_US, true, 0);
+  renderTimerInitialized_ = true;
 #endif
+
+  if (brightness_ == 0)
+  {
+    // Respect persisted brightness=0 immediately after setup.
+    stopRenderTimer();
+  }
+  else
+  {
+    poweredOff_ = false;
+  }
 }
 
 void Screen_::setPixelAtIndex(uint8_t index, uint8_t value, uint8_t brightness)
@@ -269,6 +335,16 @@ ICACHE_RAM_ATTR void Screen_::onScreenTimer()
 
 ICACHE_RAM_ATTR void Screen_::_render()
 {
+  if (brightness_ == 0)
+  {
+#ifdef ESP8266
+    // Keep compatibility with single-shot timer mode if an in-flight ISR
+    // executes while we are transitioning power state.
+    timer1_write(100);
+#endif
+    return;
+  }
+
   const auto buf = getRotatedRenderBuffer();
 
   // SPI data needs to be 32-bit aligned, round up before divide

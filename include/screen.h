@@ -12,6 +12,16 @@ private:
   Screen_() = default;
 
   uint8_t brightness_ = 255;
+  bool poweredOff_ = false;
+  bool renderTimerInitialized_ = false;
+
+#ifdef ESP32
+  hw_timer_t *screenTimer_ = nullptr;
+#endif
+
+  void startRenderTimer();
+  void stopRenderTimer();
+
   uint8_t renderBuffer_[ROWS * COLS];
   uint8_t rotatedRenderBuffer_[ROWS * COLS];
   uint8_t cache_[ROWS * COLS];
@@ -57,6 +67,7 @@ public:
   void setCurrentRotation(int rotation, bool shouldPersist = false);
 
   uint8_t getCurrentBrightness() const;
+  bool isPoweredOff() const;
   void setBrightness(uint8_t brightness, bool shouldStore = false);
 
   void setRenderBuffer(const uint8_t *renderBuffer, bool grays = false);
