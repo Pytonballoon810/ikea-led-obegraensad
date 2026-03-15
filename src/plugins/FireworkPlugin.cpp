@@ -3,15 +3,42 @@
 
 void FireworkPlugin::drawExplosion(int x, int y, int maxRadius, int brightness)
 {
+  if (maxRadius <= 0 || brightness <= 0)
+  {
+    return;
+  }
+
+  const int radiusSquared = maxRadius * maxRadius;
+  const int innerRadius = max(1, (maxRadius * 35) / 100);
+  const int middleRadius = max(1, (maxRadius * 70) / 100);
+  const int innerSquared = innerRadius * innerRadius;
+  const int middleSquared = middleRadius * middleRadius;
+
+  // Render concentric spheres: bright core, medium halo, dim outer shell.
   for (int i = 0; i < 16; i++)
   {
     for (int j = 0; j < 16; j++)
     {
-      int distance = round(sqrt(pow(i - x, 2) + pow(j - y, 2)));
-      if (distance <= maxRadius)
+      const int dx = i - x;
+      const int dy = j - y;
+      const int distanceSquared = (dx * dx) + (dy * dy);
+
+      if (distanceSquared > radiusSquared)
       {
-        Screen.setPixel(i, j, 1, brightness);
+        continue;
       }
+
+      int sphereBrightness = (brightness * 35) / 100;
+      if (distanceSquared <= middleSquared)
+      {
+        sphereBrightness = (brightness * 65) / 100;
+      }
+      if (distanceSquared <= innerSquared)
+      {
+        sphereBrightness = brightness;
+      }
+
+      Screen.setPixel(i, j, 1, sphereBrightness);
     }
   }
 }

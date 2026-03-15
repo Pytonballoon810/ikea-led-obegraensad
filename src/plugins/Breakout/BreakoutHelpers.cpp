@@ -249,6 +249,14 @@ void BreakoutPlugin::initBricks()
   this->destroyedBricks = 0;
   for (byte i = 0; i < this->BRICK_AMOUNT; i++)
   {
+    // Plugin switches can happen asynchronously from WebSocket callbacks.
+    // Abort seeding immediately if Breakout is no longer active so we don't
+    // draw stale pixels into the next plugin's frame.
+    if (pluginManager.getActivePlugin() != this)
+    {
+      return;
+    }
+
     this->bricks[i].x = i % this->X_MAX;
     this->bricks[i].y = i / this->X_MAX;
     Screen.setPixelAtIndex(this->bricks[i].y * this->X_MAX + this->bricks[i].x, this->LED_TYPE_ON, 50);
