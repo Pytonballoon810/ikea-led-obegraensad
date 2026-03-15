@@ -2,9 +2,11 @@
 #include <unity.h>
 
 #include "constants.h"
+#include "PluginManager.h"
 #include "screen.h"
 
 SYSTEM_STATUS currentStatus = NONE;
+PluginManager pluginManager;
 
 void test_set_render_buffer_binary_maps_to_255() {
   uint8_t input[ROWS * COLS] = {0};
@@ -52,6 +54,16 @@ void test_brightness_zero_enables_off_state_and_recovery() {
 
 void setup() {
   delay(2000);
+}
+
+void loop() {
+  static bool ran = false;
+  if (ran) {
+    delay(1000);
+    return;
+  }
+  ran = true;
+
   UNITY_BEGIN();
 
   RUN_TEST(test_set_render_buffer_binary_maps_to_255);
@@ -61,5 +73,3 @@ void setup() {
 
   UNITY_END();
 }
-
-void loop() {}
