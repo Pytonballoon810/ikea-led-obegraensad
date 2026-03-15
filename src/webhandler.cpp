@@ -23,16 +23,22 @@ void handleMessage(AsyncWebServerRequest *request)
         maxy = 15;
     }
 
-    // Extracting the 'graph' parameter as a comma-separated list of integers
+    // Parse 'graph' parameter: comma-separated list of integers.
+    // We work on a mutable copy of the string so we can tokenise safely;
+    // strtok_r is used instead of strtok for re-entrancy.
     std::string graphParam = request->arg("graph").c_str();
     std::vector<int> graph;
 
-    char *token = strtok(const_cast<char *>(graphParam.c_str()), ",");
-    while (token != nullptr)
+    if (!graphParam.empty())
     {
-        // Convert the substring to an integer and add it to the vector
+      std::string graphCopy = graphParam; // mutable copy
+      char *saveptr = nullptr;
+      char *token = strtok_r(&graphCopy[0], ",", &saveptr);
+      while (token != nullptr)
+      {
         graph.push_back(std::stoi(token));
-        token = strtok(nullptr, ",");
+        token = strtok_r(nullptr, ",", &saveptr);
+      }
     }
 
     // Add the message
@@ -70,7 +76,8 @@ void handleSetPlugin(AsyncWebServerRequest *request)
 
     StaticJsonDocument<256> jsonResponse;
 
-    if (pluginManager.getActivePlugin() && pluginManager.getActivePlugin()->getId() == id)
+    Plugin *active = pluginManager.getActivePlugin();
+    if (active && active->getId() == id)
     {
         jsonResponse["status"] = "success";
         jsonResponse["message"] = "Plugin set successfully";
@@ -148,8 +155,10 @@ void handleGetInfo(AsyncWebServerRequest *request)
     DynamicJsonDocument jsonDocument(6144);
     jsonDocument["rows"] = ROWS;
     jsonDocument["cols"] = COLS;
+
+    Plugin *active = pluginManager.getActivePlugin();
     jsonDocument["status"] = currentStatus;
-    jsonDocument["plugin"] = pluginManager.getActivePlugin()->getId();
+    jsonDocument["plugin"] = active ? active->getId() : -1;
     jsonDocument["rotation"] = Screen.currentRotation;
     jsonDocument["brightness"] = Screen.getCurrentBrightness();
     jsonDocument["scheduleActive"] = Scheduler.isActive;
