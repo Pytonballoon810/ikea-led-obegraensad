@@ -40,6 +40,8 @@ void GameOfLifePlugin::spawnJetFromLeft()
 
 void GameOfLifePlugin::seedPreset(SeedPreset preset)
 {
+  static const uint8_t SEED_ANIM_DELAY_MS = 10;
+
   clearBoard();
 
   switch (preset)
@@ -119,6 +121,21 @@ void GameOfLifePlugin::seedPreset(SeedPreset preset)
 
     spawnJetFromLeft();
     break;
+  }
+
+  // Animate seed appearance cell-by-cell before simulation starts.
+  Screen.clear();
+  for (int row = 0; row < ROWS; row++)
+  {
+    for (int col = 0; col < COLS; col++)
+    {
+      const int index = row * COLS + col;
+      if (this->buffer[index] == 0)
+        continue;
+
+      Screen.setPixelAtIndex(index, 1, 70);
+      delay(SEED_ANIM_DELAY_MS);
+    }
   }
 
   memcpy(this->previous, this->buffer, sizeof(this->buffer));
