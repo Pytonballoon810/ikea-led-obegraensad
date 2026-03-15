@@ -178,16 +178,20 @@ This recovery mode remains active until you flash another image.
 For a full automated flow (run tests, then immediately upload real firmware), use:
 
 ```bash
-python scripts/test_and_restore.py --connect-recovery-ap
+python scripts/test_and_restore.py --ota-url "http://<real-device-ip>" --connect-recovery-ap
 ```
 
 What this command does:
 - runs `pio test -e esp32dev-unit`
 - waits for recovery OTA endpoint `http://192.168.4.1/update`
-- uploads real firmware with `pio run -e esp32dev-recovery-ota -t upload`
+- uploads real firmware to your explicit `--ota-url` using `pio run -e esp32dev-ota -t upload`
 
 If your host is already on the recovery AP, you can omit
 `--connect-recovery-ap`.
+
+You can also provide OTA credentials via flags (`--ota-username`,
+`--ota-password`, `--ota-auth-type`) or environment variables
+(`OTA_USERNAME`, `OTA_PASSWORD`, `OTA_AUTH_TYPE`).
 
 Run a single suite with:
 
