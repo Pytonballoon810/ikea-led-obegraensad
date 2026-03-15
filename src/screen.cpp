@@ -1,3 +1,4 @@
+// Module: LED matrix framebuffer, rendering ISR, drawing primitives, and persistence hooks.
 #include "screen.h"
 #include <SPI.h>
 #include <algorithm>

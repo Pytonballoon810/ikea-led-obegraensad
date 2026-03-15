@@ -1,3 +1,4 @@
+// Module: Autonomous snake game simulation plugin.
 #include "plugins/SnakePlugin.h"
 
 void SnakePlugin::initGame()

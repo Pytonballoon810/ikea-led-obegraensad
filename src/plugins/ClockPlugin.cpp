@@ -1,3 +1,4 @@
+// Module: Compact digital clock display plugin.
 #include "plugins/ClockPlugin.h"
 
 void ClockPlugin::setup()

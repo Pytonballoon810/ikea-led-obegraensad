@@ -1,3 +1,4 @@
+// Module: Interactive drawing plugin for manual pixel editing and canvas operations.
 #include "plugins/DrawPlugin.h"
 
 void DrawPlugin::setup()

@@ -1,3 +1,4 @@
+// Module: Plugin lifecycle management: register, activate, cycle, and run plugins.
 #include "PluginManager.h"
 #include "scheduler.h"
 

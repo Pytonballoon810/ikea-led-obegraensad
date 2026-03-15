@@ -1,3 +1,4 @@
+// Module: Ticking/segment style time display plugin.
 #include "plugins/TickingClockPlugin.h"
 
 void TickingClockPlugin::setup()

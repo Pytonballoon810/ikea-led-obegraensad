@@ -1,3 +1,4 @@
+// Module: DDP network streaming plugin for realtime pixel control.
 #include "plugins/DDPPlugin.h"
 
 void DDPPlugin::setup()

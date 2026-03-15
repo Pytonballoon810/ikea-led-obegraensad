@@ -1,3 +1,4 @@
+// Module: Pong-style clock visualization plugin.
 #include "plugins/PongClockPlugin.h"
 
 /************************************************

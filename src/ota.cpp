@@ -1,3 +1,4 @@
+// Module: OTA update integration and on-device update status rendering.
 #include "ota.h"
 
 #ifdef ENABLE_SERVER

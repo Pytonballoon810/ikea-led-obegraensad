@@ -1,3 +1,4 @@
+// Module: Rainfall droplet animation plugin.
 #include "plugins/RainPlugin.h"
 
 void RainPlugin::setup()

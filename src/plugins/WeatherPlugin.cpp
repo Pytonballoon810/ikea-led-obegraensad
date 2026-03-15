@@ -1,3 +1,4 @@
+// Module: Weather information rendering plugin.
 #include "plugins/WeatherPlugin.h"
 
 // https://github.com/chubin/wttr.in/blob/master/share/translations/en.txt

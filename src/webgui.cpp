@@ -1,3 +1,4 @@
+// Module: Embedded web UI asset serving (compressed frontend payload).
 #include "webgui.h"
 
 #ifdef ENABLE_SERVER

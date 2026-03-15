@@ -1,3 +1,4 @@
+// Module: Conway's Game of Life simulation plugin.
 #include "plugins/GameOfLifePlugin.h"
 
 uint8_t GameOfLifePlugin::countNeighbours(int row, int col)

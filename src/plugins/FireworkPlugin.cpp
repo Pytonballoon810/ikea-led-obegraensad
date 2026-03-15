@@ -1,3 +1,4 @@
+// Module: Firework particle animation plugin.
 #include "plugins/FireworkPlugin.h"
 
 void FireworkPlugin::drawExplosion(int x, int y, int maxRadius, int brightness)

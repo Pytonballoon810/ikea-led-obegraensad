@@ -1,3 +1,4 @@
+// Module: Time-based plugin scheduling, persistence, and rotation control.
 #include "scheduler.h"
 #include "websocket.h"
 

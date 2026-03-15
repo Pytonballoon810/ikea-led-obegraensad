@@ -1,3 +1,4 @@
+// Module: Bitmap/font/icon assets used by plugins and status displays.
 #include "signs.h"
 
 std::vector<int> letterU = {

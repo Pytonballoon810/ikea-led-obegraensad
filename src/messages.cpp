@@ -1,3 +1,4 @@
+// Module: Timed message queue and scrolling display logic for notifications/graphs.
 #include "messages.h"
 #include <SPI.h>
 

@@ -1,3 +1,4 @@
+// Module: HTTP API handlers for plugins, brightness, schedule, and messages.
 #include "webhandler.h"
 #include "messages.h"
 #include "scheduler.h"

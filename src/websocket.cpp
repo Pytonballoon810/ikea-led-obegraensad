@@ -1,3 +1,4 @@
+// Module: WebSocket state sync and realtime command processing.
 #include "PluginManager.h"
 #include "scheduler.h"
 

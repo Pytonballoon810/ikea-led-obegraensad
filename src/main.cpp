@@ -1,3 +1,4 @@
+// Module: Firmware entrypoint: hardware setup, plugin registration, and main loop scheduling.
 #include <Arduino.h>
 #include <BfButton.h>
 #include <SPI.h>

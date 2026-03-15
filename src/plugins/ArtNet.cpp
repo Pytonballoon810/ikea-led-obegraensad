@@ -1,3 +1,4 @@
+// Module: Art-Net DMX receiver plugin mapping network frames to the matrix.
 #include "plugins/ArtNet.h"
 
 void ArtNetPlugin::setup()
