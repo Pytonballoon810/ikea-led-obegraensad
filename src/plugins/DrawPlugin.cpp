@@ -3,15 +3,8 @@
 void DrawPlugin::setup()
 {
   delay(50);
+  // Entering Draw mode should always present a fresh canvas.
   Screen.clear();
-  if (Screen.isCacheEmpty())
-  {
-    Screen.loadFromStorage();
-  }
-  else
-  {
-    Screen.restoreCache();
-  }
 #ifdef ENABLE_SERVER
   sendInfo();
 #endif
