@@ -21,10 +21,16 @@ void startOtaRecoveryModeOnce() {
     return;
   }
 
-  // Provide a deterministic recovery network so the real firmware can be
-  // uploaded right after test images are flashed via `pio test`.
-  WiFi.mode(WIFI_AP);
+  // Keep deterministic AP recovery mode, but also try to reconnect STA using
+  // saved credentials so OTA via the normal device URL can still work.
+  WiFi.mode(WIFI_AP_STA);
   WiFi.softAP("IKEA-Test-OTA", "adminadmin");
+  WiFi.begin();
+
+  const uint32_t staDeadline = millis() + 8000;
+  while (WiFi.status() != WL_CONNECTED && millis() < staDeadline) {
+    delay(100);
+  }
 
   recoveryServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", "Test image OTA mode. Open /update to flash real firmware.");
@@ -38,6 +44,13 @@ void startOtaRecoveryModeOnce() {
   Serial.println("[TEST] OTA recovery AP: IKEA-Test-OTA");
   Serial.println("[TEST] OTA credentials: admin / admin");
   Serial.println("[TEST] OTA URL: http://192.168.4.1/update");
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("[TEST] OTA URL (STA): http://");
+    Serial.print(WiFi.localIP());
+    Serial.println("/update");
+  } else {
+    Serial.println("[TEST] STA reconnect unavailable; AP recovery remains active.");
+  }
 }
 }  // namespace
 

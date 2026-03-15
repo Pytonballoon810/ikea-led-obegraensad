@@ -66,21 +66,26 @@ def _connect_linux_ap(ssid: str, password: str) -> bool:
 
 
 def _wait_for_recovery(
-    host: str,
+    hosts: list[str],
     timeout_seconds: int,
     connect_ap: bool,
     ap_ssid: str,
     ap_password: str,
-) -> None:
-    print(f"[FLOW] Waiting for recovery endpoint at http://{host}/update")
+) -> str:
+    if not hosts:
+        raise ValueError("No recovery hosts configured")
+
+    host_list = ", ".join(f"http://{host}/update" for host in hosts)
+    print(f"[FLOW] Waiting for recovery endpoint at one of: {host_list}")
 
     deadline = time.time() + timeout_seconds
     connected_attempted = False
 
     while time.time() < deadline:
-        if _is_recovery_http_reachable(host):
-            print("[FLOW] Recovery OTA endpoint is reachable.")
-            return
+        for host in hosts:
+            if _is_recovery_http_reachable(host):
+                print(f"[FLOW] Recovery OTA endpoint is reachable at http://{host}/update")
+                return host
 
         # Try a single AP connection attempt (Linux only) if requested.
         if connect_ap and not connected_attempted:
@@ -91,7 +96,7 @@ def _wait_for_recovery(
 
     raise TimeoutError(
         "Timed out waiting for test firmware recovery OTA endpoint. "
-        "Ensure test image finished and host is connected to IKEA-Test-OTA."
+        "Ensure test image finished and host is connected to the correct network."
     )
 
 
@@ -183,20 +188,31 @@ def main() -> int:
 
     # If not explicitly provided, use OTA target host for recovery probing.
     # When AP auto-connect is requested, default to test AP gateway.
-    recovery_host = args.recovery_host or ("192.168.4.1" if args.connect_recovery_ap else ota_host)
+    if args.recovery_host:
+        recovery_hosts = [args.recovery_host]
+    else:
+        recovery_hosts = [ota_host]
+        if "192.168.4.1" not in recovery_hosts:
+            recovery_hosts.append("192.168.4.1")
 
     try:
         # 1) Upload and execute tests. Test firmware then stays in OTA recovery mode.
         _run(["pio", "test", "-e", args.test_env])
 
         # 2) Wait for recovery endpoint; optionally switch host to test AP.
-        _wait_for_recovery(
-            host=recovery_host,
+        recovery_host = _wait_for_recovery(
+            hosts=recovery_hosts,
             timeout_seconds=args.wait_seconds,
             connect_ap=args.connect_recovery_ap,
             ap_ssid=args.ap_ssid,
             ap_password=args.ap_password,
         )
+
+        if recovery_host != ota_host:
+            print(
+                "[FLOW] Recovery came up on a different host than OTA target. "
+                "Proceeding with configured OTA URL for final upload."
+            )
 
         # Ensure the final OTA target (real firmware endpoint) is reachable.
         _wait_for_upload_target(args.ota_url, args.wait_seconds)
