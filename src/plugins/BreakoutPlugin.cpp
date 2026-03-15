@@ -212,31 +212,43 @@ void BreakoutPlugin::updateBall()
     }
   }
 
-  // Brick collision resolution checks X- and Y-axes independently so side
-  // impacts reflect correctly instead of always using a simple pass-through.
-  int hitDiag = brickIndexAt(nx, ny);
-  int hitX = brickIndexAt(this->ball.x + dx, this->ball.y);
-  int hitY = brickIndexAt(this->ball.x, this->ball.y + dy);
-
-  if (hitDiag >= 0 || hitX >= 0 || hitY >= 0)
+  // Brick collision: resolve one impacted brick per frame and apply a single
+  // deterministic bounce rule to avoid multi-flip jitter.
+  const int hitDiag = brickIndexAt(nx, ny);
+  if (hitDiag >= 0)
   {
-    if (hitX >= 0)
+    const int hitX = brickIndexAt(this->ball.x + dx, this->ball.y);
+    const int hitY = brickIndexAt(this->ball.x, this->ball.y + dy);
+
+    bool bounceX = false;
+    bool bounceY = false;
+
+    if (hitX >= 0 && hitY < 0)
     {
-      removeBrick(hitX);
+      bounceX = true;
+    }
+    else if (hitY >= 0 && hitX < 0)
+    {
+      bounceY = true;
+    }
+    else if (hitX >= 0 && hitY >= 0)
+    {
+      // Corner squeeze between neighboring bricks.
+      bounceX = true;
+      bounceY = true;
+    }
+    else
+    {
+      // Pure diagonal touch behaves most naturally as a vertical reflection.
+      bounceY = true;
+    }
+
+    removeBrick(hitDiag);
+
+    if (bounceX)
       dx *= -1;
-    }
-    if (hitY >= 0)
-    {
-      removeBrick(hitY);
+    if (bounceY)
       dy *= -1;
-    }
-    if (hitDiag >= 0 && hitDiag != hitX && hitDiag != hitY)
-    {
-      removeBrick(hitDiag);
-      // Corner-only impact: reflect both axes for natural bounce.
-      dx *= -1;
-      dy *= -1;
-    }
 
     nx = this->ball.x + dx;
     ny = this->ball.y + dy;
