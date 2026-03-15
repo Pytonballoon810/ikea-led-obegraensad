@@ -1,0 +1,90 @@
+name: Auto Update Main
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build_and_publish_auto_update:
+    name: Build and Publish Auto-Update Assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install platformio
+
+      - name: Create secrets.h dynamically
+        run: |
+          mkdir -p include
+          cat <<'EOL' > include/secrets.h
+          #pragma once
+          #define WIFI_HOSTNAME "ikealedmatrix"
+          #ifdef ESP8266
+          #define WIFI_SSID "WifiForIkeaLamp"
+          #define WIFI_PASSWORD "WifiPasswordForIkeaLamp"
+          #endif
+          #define OTA_USERNAME "admin"
+          #define OTA_PASSWORD "password"
+          EOL
+
+      - name: Build esp32dev firmware
+        run: |
+          pio pkg update
+          pio upgrade
+          pio pkg install
+          platformio run --environment esp32dev
+
+      - name: Prepare firmware and manifest
+        run: |
+          mkdir -p builds
+          cp ./.pio/build/esp32dev/firmware.bin ./builds/esp32dev_firmware.bin
+
+          SHA256=$(sha256sum ./builds/esp32dev_firmware.bin | awk '{print $1}')
+          VERSION="${GITHUB_SHA}"
+          FIRMWARE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/auto-main/esp32dev_firmware.bin"
+
+          cat <<EOL > ./builds/manifest-esp32dev.json
+          {
+            "version": "${VERSION}",
+            "board": "esp32dev",
+            "firmware_url": "${FIRMWARE_URL}",
+            "sha256": "${SHA256}",
+            "source_ref": "${GITHUB_REF}",
+            "source_commit": "${GITHUB_SHA}",
+            "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOL
+
+      - name: Publish auto-main release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: auto-main
+          target_commitish: ${{ github.sha }}
+          name: Auto Update (main)
+          draft: false
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          body: |
+            Latest auto-update assets built from the main branch.
+            - `esp32dev_firmware.bin`
+            - `manifest-esp32dev.json`
+          files: |
+            ./builds/esp32dev_firmware.bin
+            ./builds/manifest-esp32dev.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

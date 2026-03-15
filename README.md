@@ -158,6 +158,37 @@ If your target still uses the old endpoint, set:
 export OTA_URL="http://<device-ip>/update"
 ```
 
+### Automatic Updates From GitHub Main
+
+This repository supports automatic firmware updates for ESP32 devices.
+
+How it works:
+- On every commit to `main`, GitHub Actions builds `esp32dev` firmware.
+- The workflow publishes two assets to release tag `auto-main`:
+  - `esp32dev_firmware.bin`
+  - `manifest-esp32dev.json`
+- The firmware periodically downloads `manifest-esp32dev.json` and compares
+  versions.
+- If a newer version is available, it downloads the binary, verifies SHA256,
+  applies OTA, and reboots.
+
+Configuration is in `include/constants.h`:
+- `AUTO_UPDATE_ENABLED`
+- `AUTO_UPDATE_MANIFEST_URL`
+- `AUTO_UPDATE_INITIAL_DELAY_MS`
+- `AUTO_UPDATE_CHECK_INTERVAL_MS`
+
+Default manifest URL:
+
+```text
+https://github.com/ph1p/ikea-led-obegraensad/releases/download/auto-main/manifest-esp32dev.json
+```
+
+Notes:
+- Auto-update currently targets `esp32dev` artifacts.
+- Devices must have internet access to GitHub.
+- The updater uses HTTPS and validates firmware with SHA256 from manifest.
+
 ### Unit Testing (src Focus)
 
 The project includes an embedded Unity test environment for core `src` logic:

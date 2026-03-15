@@ -59,6 +59,7 @@
 #endif
 
 #include "asyncwebserver.h"
+#include "auto_update.h"
 #include "messages.h"
 #include "ota.h"
 #include "screen.h"
@@ -174,6 +175,7 @@ void baseSetup()
   initOTA(server);
   initWebsocketServer(server);
   initWebServer();
+  initAutoUpdate();
 #endif
   pluginManager.addPlugin(new DrawPlugin());
   pluginManager.addPlugin(new BreakoutPlugin());
@@ -250,6 +252,7 @@ void loop()
 
 #ifdef ENABLE_SERVER
   ElegantOTA.loop();
+  loopAutoUpdate();
 #endif
 
 #if !defined(ESP32) && !defined(ESP8266)
